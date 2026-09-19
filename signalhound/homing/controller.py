@@ -41,7 +41,7 @@ class HomingController:
     async def _measure(self, label=""):
         """Fresh window after a move; returns filtered RSSI or None if the target is silent."""
         self.radio.reset_window()
-        ok = await asyncio.to_thread(self.radio.wait_for_samples, self.cfg.rssi_min_samples, self.cfg.settle_seconds + 3.0)
+        ok = await asyncio.to_thread(self.radio.wait_for_samples, self.cfg.rssi_min_samples, self.cfg.measure_timeout_seconds)
         rssi = self.radio.get_filtered_rssi() if ok else None
         x, y = await self.robot.get_position()
         yaw = await self.robot.get_yaw()

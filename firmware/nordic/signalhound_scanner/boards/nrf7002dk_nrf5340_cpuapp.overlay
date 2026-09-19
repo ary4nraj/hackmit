@@ -1,0 +1,5 @@
+/* Console over VCOM0 without hardware flow control: the J-Link OB does not drive CTS reliably,
+ * and with HWFC on the UARTE would stall TX forever. */
+&uart0 {
+	/delete-property/ hw-flow-control;
+};

@@ -31,6 +31,20 @@ Merged image: `firmware/nordic/signalhound_merged.hex` (app + net). Two options:
    with `-device nRF5340_xxAA_NET` / `_APP`; needs write access to the USB device
    (`sudo cp ~/dev/jlink/extracted/etc/udev/rules.d/99-jlink.rules /etc/udev/rules.d/ && sudo udevadm control --reload` then replug).
 
+## Lessons from bring-up (2026-09-19, all verified on the board)
+- The console appears on the **second** J-Link VCOM (`/dev/ttyACM1` after the OB firmware update);
+  `nordic_serial.py` now probes every SEGGER port for protocol lines, so no config is needed.
+- `CONFIG_BT_EXT_ADV=y` in the app made `bt_le_scan_start` fail with -EIO because the upstream
+  `hci_ipc` controller image is built without extended advertising. Removed; legacy scanning only.
+- `bt_enable` needs the network core released: `CONFIG_BOARD_ENABLE_CPUNET=y` (deprecated name,
+  still works in 4.2) and the `hci_ipc` image at 0x01000000.
+- The J-Link MSD drag-and-drop does not work for this board (FAIL.TXT); use JLinkExe (installed by
+  the nRF Connect VS Code extension pack, which also installed the udev rule).
+- Debug without a console: `volatile` globals `dbg_stage/dbg_bt_err/dbg_scan_err` and the packet
+  counters can be read with `JLinkExe ... mem32 <addr> 1` (addresses from `arm-zephyr-eabi-nm`).
+- Two threads printing interleaved lines (`SCAN,SCAN,...`); printing is now under a mutex.
+- Scan window == interval (continuous) to maximise target packet rate.
+
 ## Verify
 `python scripts/radio_monitor.py --raw` should show `BOOT,0.1,...`, `SCAN,n,m` every second and
 `TARGET,Galaxy S25,-6x,<addr>` lines while the phone advertises.

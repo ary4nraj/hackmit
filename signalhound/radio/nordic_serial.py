@@ -8,16 +8,35 @@ from signalhound.radio.filter import RssiFilter
 from signalhound.radio.scanner_protocol import parse_line
 
 
-def find_port(preferred=""):
+def candidate_ports(preferred=""):
+    """Ordered list of ports to try. The nRF7002-DK's J-Link OB exposes two CDC ports and which one
+    carries the nRF5340 console depends on the OB firmware/enumeration, so we probe them all."""
     if preferred:
-        return preferred
-    # SEGGER J-Link OB on the nRF7002-DK exposes two CDC ports; the first is the nRF5340 console.
-    for pattern in ("/dev/serial/by-id/usb-SEGGER_J-Link_*-if00", "/dev/serial/by-id/usb-SEGGER_J-Link_*"):
-        hits = sorted(glob.glob(pattern))
-        if hits:
-            return hits[0]
-    hits = sorted(glob.glob("/dev/ttyACM*"))
-    return hits[0] if hits else None
+        return [preferred]
+    ports = sorted(glob.glob("/dev/serial/by-id/usb-SEGGER_J-Link_*"))
+    return ports or sorted(glob.glob("/dev/ttyACM*"))
+
+
+def find_port(preferred=""):
+    ports = candidate_ports(preferred)
+    return ports[0] if ports else None
+
+
+def probe_port(port, baud, seconds=2.5):
+    """True if the port emits SignalHound protocol lines within `seconds`."""
+    import serial
+
+    try:
+        with serial.Serial(port, baud, timeout=0.3) as ser:
+            ser.dtr = True
+            deadline = time.time() + seconds
+            while time.time() < deadline:
+                line = ser.readline().decode("utf-8", "replace")
+                if line and parse_line(line) is not None:
+                    return True
+    except Exception:
+        return False
+    return False
 
 
 class NordicSerial:
@@ -51,13 +70,18 @@ class NordicSerial:
         import serial
 
         while not self._stop.is_set():
-            port = find_port(self.cfg.serial_port)
+            port = None
+            for candidate in candidate_ports(self.cfg.serial_port):
+                if self.cfg.serial_port or probe_port(candidate, self.cfg.serial_baud):
+                    port = candidate
+                    break
             if not port:
                 self.connected = False
                 time.sleep(1.0)
                 continue
             try:
                 with serial.Serial(port, self.cfg.serial_baud, timeout=1.0) as ser:
+                    ser.dtr = True
                     self.port = port
                     self.connected = True
                     ser.reset_input_buffer()
