@@ -19,3 +19,9 @@ Only then `./scripts/demo.sh`.
 Safety: all motion goes through `signalhound/robot/safety.py` (caps 0.5 m/s, 1.0 rad/s, 2 s per
 burst, latched stop on any exception, StopMove after every burst). Ctrl+C in any script stops.
 `range_obstacle` semantics are not verified; treat index 0 as "front" until confirmed on the dog.
+
+## Bring-up notes (2026-09-19, verified)
+- The AP is named `Go2_61034_<8 hex>` and the suffix changes on every boot; `scripts/net_go2.sh` picks the strongest match.
+- Wrong AP password shows up in `journalctl` as `CTRL-EVENT-SSID-TEMP-DISABLED ... reason=WRONG_KEY`; the password was reset from the Unitree app.
+- First successful `go2_status.py`: mode 0, gait 0, body_height 0.32, `range_obstacle` all zeros while standing still, telemetry keys: body_height, error_code, foot_force, foot_position_body, foot_raise_height, foot_speed_body, gait_type, imu_state, mode, position, progress, range_obstacle, stamp, velocity, yaw_speed.
+- The robot's AP has no internet. Use `scripts/net_go2.sh` (never-default route) plus phone USB tethering for a second uplink.

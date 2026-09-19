@@ -2,6 +2,7 @@
 
 ## WORKING
 - **RADIO MILESTONE (real hardware):** nRF7002-DK flashed (app scanner + hci_ipc), streams `TARGET,Galaxy S25,<rssi>,<addr>` over USB; `python scripts/radio_monitor.py` shows raw/filtered RSSI and tracking status. First readings −62…−78 dBm.
+- **GO2 CONNECTION (real hardware):** `scripts/go2_status.py` connected over WebRTC LocalAP and streamed telemetry (position, yaw, velocity, range_obstacle, body_height), then disconnected cleanly. Motion not yet tested.
 - Golden path in simulation: `./scripts/demo.sh --mock --yes` → calibrates, hill-climbs, prints TARGET FOUND (12 moves for a target 3.6 m away). 12 SignalHound tests pass (`pytest tests_sh`).
 - Radio stack: `signalhound/radio/` (auto-detect J-Link VCOM, reconnect, CSV protocol, rolling median + EMA, quality/staleness), `python scripts/radio_monitor.py --raw`.
 - Firmware built for the nRF7002-DK: app core scanner (`firmware/nordic/signalhound_scanner`, upstream Zephyr 4.2) + network core `hci_ipc`. Hex files ready; `scripts/flash_nordic.sh` flashes both.
@@ -10,17 +11,18 @@
 
 ## BROKEN
 - Target packet rate is low (~0.4/s) because the phone advertises slowly; homing decisions would be sluggish until the interval is lowered (see manual action).
-- Untested on hardware: Go2 motion commands (robot AP `Go2_61034` not visible from the laptop right now; no `.env` credentials yet). `range_obstacle` semantics unverified.
+- Go2 motion commands untested. `range_obstacle` read as [0,0,0,0] at rest: semantics unverified, treat as unavailable.
+- Joining the Go2 WLAN drops the laptop's internet, which also cuts off the coding agent. Needs a second uplink (phone USB tethering) — `scripts/net_go2.sh` keeps the default route off the robot link.
 
 ## NEXT 3 TASKS
-1. Walk the phone 0.5 / 2 / 5 m and behind a wall while `python scripts/radio_monitor.py --log data/rssi.csv` runs; fill TEST 1 in `docs/experiment-log.md`.
-2. Join the Go2 WLAN with `.env` filled in; run `go2_status.py`, `go2_stop.py`, `go2_forward_test.py`, `go2_rotate_test.py` in that order.
-3. First physical closed loop with `./scripts/demo.sh` (ENTER gate), tune thresholds from the log.
+1. With USB tethering up: `./scripts/net_go2.sh`, then `go2_stop.py`, `go2_forward_test.py`, `go2_rotate_test.py` (each behind a typed YES).
+2. Mount the DK on the dog (USB to the laptop, laptop follows or long cable), run `homing_manual.py --robot` while walking the phone: check that RSSI tracks and telemetry stays fresh.
+3. First physical closed loop with `./scripts/demo.sh` (ENTER gate); tune thresholds from `data/homing-history.jsonl`.
 
 ## MANUAL ACTION NEEDED
-- On the phone, in nRF Connect → Advertiser → the "Galaxy S25" packet: set advertising interval to 100 ms and TX power to high, keep it advertising.
-- Create `.env` from `.env.example` with `GO2_AES_KEY` (and SSID/password for reference), power the Go2 on, connect the laptop to the Go2 WLAN.
-- Keep the phone unlocked with nRF Connect advertising "Galaxy S25".
+- Enable **USB tethering** on the Galaxy S25 and plug it into the laptop (gives internet on usb0 while Wi-Fi is on the robot). Keep nRF Connect advertising "Galaxy S25" at 100 ms.
+- Keep the Go2 powered; its AP name changes every boot (`Go2_61034_<random>`), the scripts handle that. AP password was reset to the value in `.env`.
+- Stand next to the dog with the remote for every motion test.
 
 ## DEMO READINESS
-- Simulation: READY. Radio-only proof: DONE (live RSSI on the laptop). Robot motion: blocked on WLAN + credentials. Autonomous physical homing: not yet attempted.
+- Simulation: READY. Radio-only proof: DONE (live RSSI on the laptop). Robot link: DONE (telemetry). Robot motion: ready to test once the laptop has a second uplink. Autonomous physical homing: not yet attempted.
