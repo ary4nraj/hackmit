@@ -1,0 +1,7 @@
+{
+  "_comment": "Observation waypoints in the Go2 odometry/world frame (metres). Survey these on flat floor with clearance from people and stairs. Values below are placeholders, not safe coordinates.",
+  "entrance table": [0.0, 0.0],
+  "left side": [1.5, 0.0],
+  "back wall": [1.5, 1.5],
+  "entrance": [0.0, 1.5]
+}
