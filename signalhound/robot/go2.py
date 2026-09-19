@@ -37,7 +37,14 @@ class Go2Robot:
 
         assert RTC_TOPIC["SPORT_MOD"] == SPORT_TOPIC and RTC_TOPIC["LF_SPORT_MOD_STATE"] == STATE_TOPIC
         key = self.cfg.go2_aes_key or os.getenv("GO2_AES_KEY") or None
-        self.conn = UnitreeWebRTCConnection(WebRTCConnectionMethod.LocalAP, aes_128_key=key)
+        if self.cfg.go2_connection == "sta":
+            # Robot joined a shared Wi-Fi (e.g. a phone hotspot); reach it by IP or discover by serial.
+            ip = self.cfg.go2_ip if self.cfg.go2_ip and self.cfg.go2_ip != "192.168.12.1" else None
+            self.conn = UnitreeWebRTCConnection(
+                WebRTCConnectionMethod.LocalSTA, ip=ip, serialNumber=self.cfg.go2_serial or None, aes_128_key=key
+            )
+        else:
+            self.conn = UnitreeWebRTCConnection(WebRTCConnectionMethod.LocalAP, aes_128_key=key)
         async with asyncio.timeout(timeout):
             await self.conn.connect()
         self.conn.datachannel.pub_sub.subscribe(STATE_TOPIC, self._on_state)

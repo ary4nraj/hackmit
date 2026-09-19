@@ -50,6 +50,10 @@ class Config:
     trend_db: float = field(default_factory=lambda: _f("TREND_DB", 1.5))
     obstacle_stop_m: float = field(default_factory=lambda: _f("OBSTACLE_STOP_M", 0.6))
     # Go2 connection (secrets come from env only; never committed)
+    # ap: laptop on the robot's own Wi-Fi (192.168.12.1). sta: robot joined a shared network (phone hotspot);
+    # then GO2_IP is its address there, or leave empty and set GO2_SERIAL for multicast discovery.
+    go2_connection: str = field(default_factory=lambda: os.getenv("GO2_CONNECTION", "ap").lower())
     go2_ip: str = field(default_factory=lambda: os.getenv("GO2_IP", "192.168.12.1"))
+    go2_serial: str = field(default_factory=lambda: os.getenv("GO2_SERIAL", ""))
     go2_aes_key: str = field(default_factory=lambda: os.getenv("GO2_AES_KEY", ""))
     go2_ssid: str = field(default_factory=lambda: os.getenv("GO2_SSID", ""))
