@@ -19,4 +19,6 @@ def test_parse_lines():
     assert t.kind == "TARGET" and t.name == "Galaxy S25" and t.rssi == -63
     assert parse_line("SCAN,120,7").extra == (120, 7)
     assert parse_line("RSSI,-61").rssi == -61
+    adv = parse_line("ADV,Pixel 9,-70,AA:BB:CC:DD:EE:FF (random)")
+    assert adv.kind == "ADV" and adv.name == "Pixel 9" and adv.rssi == -70
     assert parse_line("garbage") is None and parse_line("TARGET,x,notanumber") is None

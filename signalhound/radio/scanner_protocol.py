@@ -1,7 +1,7 @@
 """Line protocol between the Nordic DK and the laptop. One line per event, comma separated.
 
   TARGET,<name>,<rssi_dbm>,<addr>      target beacon seen (this is what steering uses)
-  SEEN,<name>,<rssi_dbm>               any other named advertiser (debug, rate limited)
+  ADV,<name>,<rssi_dbm>,<addr>         any other named advertiser (rate limited); the laptop may treat one of these as the target
   SCAN,<packets_total>,<target_total>  1 Hz heartbeat proving the board is alive
   BOOT,<version>                       firmware started
 """
@@ -27,8 +27,8 @@ def parse_line(raw: str):
     try:
         if kind == "TARGET" and len(parts) >= 3:
             return Line("TARGET", parts[1].strip(), float(parts[2]), parts[3].strip() if len(parts) > 3 else "")
-        if kind == "SEEN" and len(parts) >= 3:
-            return Line("SEEN", parts[1].strip(), float(parts[2]))
+        if kind in ("SEEN", "ADV") and len(parts) >= 3:
+            return Line("ADV", parts[1].strip(), float(parts[2]), parts[3].strip() if len(parts) > 3 else "")
         if kind == "RSSI" and len(parts) >= 2:  # bare form, name unknown
             return Line("TARGET", "", float(parts[1]))
         if kind == "SCAN":

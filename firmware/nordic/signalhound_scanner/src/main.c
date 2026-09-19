@@ -69,11 +69,15 @@ static void scan_cb(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type, str
 #endif
 		return;
 	}
+	/* Any other named advertiser: ADV lines so the laptop can retarget by name at runtime
+	 * (TARGET_NAME env) without reflashing. Globally rate limited so the UART never stalls
+	 * the BLE RX thread. */
 	int64_t now = k_uptime_get();
-	if (now - last_seen_report > CONFIG_SH_SEEN_REPORT_MS) {
+	if (now - last_seen_report >= CONFIG_SH_SEEN_REPORT_MS) {
 		last_seen_report = now;
+		bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 		k_mutex_lock(&print_lock, K_FOREVER);
-		printk("SEEN,%s,%d\n", ctx.name, rssi);
+		printk("ADV,%s,%d,%s\n", ctx.name, rssi, addr_str);
 		k_mutex_unlock(&print_lock);
 	}
 }

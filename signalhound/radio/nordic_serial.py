@@ -103,10 +103,10 @@ class NordicSerial:
             return
         now = time.time()
         with self.lock:
-            if line.kind == "TARGET" and (not line.name or line.name == self.cfg.target_name):
+            if line.kind in ("TARGET", "ADV") and (not line.name or line.name == self.cfg.target_name):
                 self.filter.add(line.rssi, now)
                 self.target_seen += 1
-            elif line.kind in ("TARGET", "SEEN"):
+            elif line.kind in ("TARGET", "ADV"):
                 self.others[line.name] = (line.rssi, now)
             elif line.kind == "SCAN":
                 self.last_heartbeat = now
