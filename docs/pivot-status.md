@@ -15,7 +15,7 @@
 
 ## CURRENT HARDWARE STATE
 - nRF7002-DK on USB: SEGGER J-Link `001050742694`, VCOM `/dev/ttyACM0` (console) and `/dev/ttyACM1`, mass-storage `JLINK` volume mounted (drag-and-drop flashing possible). No firmware output observed yet: the board must be flashed with `firmware/nordic/signalhound_scanner`.
-- No Nordic/Zephyr toolchain was installed; fetching upstream Zephyr v4.2.0 + minimal Zephyr SDK (arm) + SEGGER J-Link tools into `~/dev/zephyr-sh` (background, ~2 MB/s link).
+- Toolchain provisioned in `~/dev/zephyr-sh` (Zephyr v4.2.0, SDK 0.17.4 arm, J-Link V9.78 extracted to `~/dev/jlink`). Both core images build. Flashing blocked on USB permissions (see docs/hackathon-status.md).
 - Laptop on `HackMIT.2026`. Our Go2 (`Go2_61034`) AP is NOT currently visible (others are). Go2 credentials not yet provided (`GO2_AES_KEY`, `GO2_SSID`, `GO2_WIFI_PASSWORD` expected in `.env`).
 - Phone: Galaxy S25 advertising "Galaxy S25" via nRF Connect (assumed BLE legacy advertising with the name in adv or scan response; firmware uses active scanning to catch both).
 

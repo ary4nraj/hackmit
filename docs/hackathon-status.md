@@ -1,31 +1,27 @@
-# Hackathon status — updated 2026-09-19 (after golden-path script)
+# SignalHound status — 2026-09-19 (pivot night)
 
 ## WORKING
-- Golden path: `./scripts/demo.sh [mock|webcam|replay|go2]` starts everything (fresh DB per run, opens browser, prints judge script).
-- Mock relocation loop end to end: remember → move → verify → INVALIDATED → bounded search → MOVED → "What changed?". `make demo` / `make test` (31 tests, ~7 s).
-- Real perception: YOLO11n + appearance-signature association; laptop webcam live (`demo.sh webcam`), 84–130 ms/frame CPU; real-pixel relocation test passes.
-- dimOS 0.0.14 adapter verified against the real `unitree-go2` blueprint in replay: streams, planner goal accepted + path planned, cancel/stop/latch, watchdog. Service runs in `dimos` mode with YOLO on recorded Go2 camera frames.
-- Dashboard: camera with boxes, memory cards with knowledge state, change timeline, tool trace, LOCAL vs CLOUD telemetry, STOP/Resume.
-- Offline command agent (no API key needed) handles the whole demo script.
+- Golden path in simulation: `./scripts/demo.sh --mock --yes` → calibrates, hill-climbs, prints TARGET FOUND (12 moves for a target 3.6 m away). 12 SignalHound tests pass (`pytest tests_sh`).
+- Radio stack: `signalhound/radio/` (auto-detect J-Link VCOM, reconnect, CSV protocol, rolling median + EMA, quality/staleness), `python scripts/radio_monitor.py --raw`.
+- Firmware built for the nRF7002-DK: app core scanner (`firmware/nordic/signalhound_scanner`, upstream Zephyr 4.2) + network core `hci_ipc`. Hex files ready; `scripts/flash_nordic.sh` flashes both.
+- Go2 layer written on the teammate-verified `unitree_webrtc_connect` LocalAP path with the documented Move/StopMove/StandUp formats; imports verified in `.dimos-venv`. Central `MotionGuard` caps speed/burst, latches STOP on any exception.
+- Homing controller with explicit states, reference-based hill climbing, 90° sweep turns, arrival hold, budgets, signal-loss and obstacle branches; terminal dashboard.
 
 ## BROKEN
-- Nothing known broken in software. Untested: real OpenAI tool calling (no key), physical Go2 arrival (robot not on our network yet).
-- Two identical-looking objects of one class cannot be told apart (by design they stay separate candidates; use ArUco tags for the hidden package).
+- Not yet flashed: J-Link mass-storage programming fails on this board (FAIL.TXT) and JLinkExe cannot open the probe because `/dev/bus/usb/003/007` is root-only. Needs the sudo command below.
+- Untested on hardware: Go2 motion commands (robot AP `Go2_61034` not visible from the laptop right now; no `.env` credentials yet). `range_obstacle` semantics unverified.
 
 ## NEXT 3 TASKS
-1. Get the Go2 onto the laptop's network (or laptop onto Go2 AP) → `make preflight` → one confirmed move with `scripts/test_navigation.py --rotate 0.5`.
-2. Survey 3–4 flat waypoints into `config/zones.json`, run `./scripts/demo.sh go2`, do the backpack relocation live once.
-3. Put `OPENAI_API_KEY`/`OPENAI_MODEL` in `.env` and run the judge script through the cloud agent once (offline mode is the fallback).
+1. Flash the DK (`./scripts/flash_nordic.sh`), run `python scripts/radio_monitor.py --raw`, walk the phone: fill TEST 1 in `docs/experiment-log.md`.
+2. Join the Go2 WLAN with `.env` filled in; run `go2_status.py`, `go2_stop.py`, `go2_forward_test.py`, `go2_rotate_test.py` in that order.
+3. First physical closed loop with `./scripts/demo.sh` (ENTER gate), tune thresholds from the log.
 
 ## MANUAL ACTION NEEDED
-- Provision Go2_61034 onto HackMIT.2026 via the Unitree app (or tell me to join the laptop to `Go2_61034_56fa1ae6`, which drops internet). Then give me `ROBOT_IP`.
-- Human beside the physical stop for every launch: dimOS start makes the robot STAND UP.
-- Optional: OpenAI key in `.env`; a printed ArUco 4x4_50 marker id 0 taped on the "package".
-- If port 8000 is busy, `demo.sh` refuses to double-bind: stop the other server or run `PORT=8001 ./scripts/demo.sh`.
-- Repo has zero git commits: say the word and I'll commit.
+- Run once (gives the user write access to the J-Link probe), then unplug/replug the DK:
+  `sudo cp ~/dev/jlink/extracted/etc/udev/rules.d/99-jlink.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger`
+  (quick alternative until replug: `sudo chmod 666 /dev/bus/usb/003/007`)
+- Create `.env` from `.env.example` with `GO2_AES_KEY` (and SSID/password for reference), power the Go2 on, connect the laptop to the Go2 WLAN.
+- Keep the phone unlocked with nRF Connect advertising "Galaxy S25".
 
 ## DEMO READINESS
-- Mock demo: READY (one command, deterministic).
-- Real-camera demo (laptop/GX10 webcam): READY, needs a backpack or bottle in view.
-- Physical Go2 demo: NOT READY — blocked on network access; all software paths exercised against replay. Estimated 30–60 min of commissioning once the robot is reachable.
-- Sponsor extras (ESP32/Nordic/Arduino/Deepgram): not started, deliberately.
+- Simulation: READY. Radio-only proof: blocked on the one sudo command (minutes). Robot motion: blocked on WLAN + credentials. Autonomous physical homing: not yet attempted.
