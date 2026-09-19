@@ -17,6 +17,9 @@ import time
 log = logging.getLogger("signalhound.go2")
 
 MOVE_RESEND_S = 0.1
+# Verified in unitree_webrtc_connect/constants.py (RTC_TOPIC); kept here so tests run without the package.
+SPORT_TOPIC = "rt/api/sport/request"
+STATE_TOPIC = "rt/lf/sportmodestate"
 
 
 class Go2Robot:
@@ -32,11 +35,12 @@ class Go2Robot:
     async def connect(self, timeout=20.0):
         from unitree_webrtc_connect import RTC_TOPIC, UnitreeWebRTCConnection, WebRTCConnectionMethod
 
+        assert RTC_TOPIC["SPORT_MOD"] == SPORT_TOPIC and RTC_TOPIC["LF_SPORT_MOD_STATE"] == STATE_TOPIC
         key = self.cfg.go2_aes_key or os.getenv("GO2_AES_KEY") or None
         self.conn = UnitreeWebRTCConnection(WebRTCConnectionMethod.LocalAP, aes_128_key=key)
         async with asyncio.timeout(timeout):
             await self.conn.connect()
-        self.conn.datachannel.pub_sub.subscribe(RTC_TOPIC["LF_SPORT_MOD_STATE"], self._on_state)
+        self.conn.datachannel.pub_sub.subscribe(STATE_TOPIC, self._on_state)
         self.connected = True
         log.info("Go2 connected via LocalAP")
 
@@ -59,14 +63,12 @@ class Go2Robot:
 
     # ---- commands -----------------------------------------------------
     async def _sport(self, api_id, parameter=None, timeout=3.0):
-        from unitree_webrtc_connect import RTC_TOPIC
-
         options = {"api_id": api_id}
         if parameter is not None:
             options["parameter"] = parameter
         try:
             async with asyncio.timeout(timeout):
-                return await self.conn.datachannel.pub_sub.publish_request_new(RTC_TOPIC["SPORT_MOD"], options)
+                return await self.conn.datachannel.pub_sub.publish_request_new(SPORT_TOPIC, options)
         except TimeoutError:
             log.warning("sport %s timed out (no ack); robot may still have executed it", api_id)
             return None
