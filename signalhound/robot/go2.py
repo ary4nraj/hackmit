@@ -40,6 +40,14 @@ class Go2Robot:
         if self.cfg.go2_connection == "sta":
             # Robot joined a shared Wi-Fi (e.g. a phone hotspot); reach it by IP or discover by serial.
             ip = self.cfg.go2_ip if self.cfg.go2_ip and self.cfg.go2_ip != "192.168.12.1" else None
+            if ip is None and not self.cfg.go2_serial:
+                from unitree_webrtc_connect import discover_ip_sn
+
+                found = await asyncio.to_thread(discover_ip_sn, 5)
+                if len(found) != 1:
+                    raise RuntimeError(f"expected exactly one Go2 on this network, found {found}; set GO2_IP")
+                ip = next(iter(found.values()))
+                log.info("discovered Go2 at %s", ip)
             self.conn = UnitreeWebRTCConnection(
                 WebRTCConnectionMethod.LocalSTA, ip=ip, serialNumber=self.cfg.go2_serial or None, aes_128_key=key
             )
