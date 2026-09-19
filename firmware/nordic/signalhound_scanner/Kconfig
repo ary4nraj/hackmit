@@ -1,0 +1,9 @@
+config SH_TARGET_NAME
+	string "BLE local name of the target beacon"
+	default "Galaxy S25"
+
+config SH_SEEN_REPORT_MS
+	int "Minimum ms between SEEN lines for non-target advertisers"
+	default 2000
+
+source "Kconfig.zephyr"
