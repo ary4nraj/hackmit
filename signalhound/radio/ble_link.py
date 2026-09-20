@@ -46,6 +46,7 @@ class BleLink:
         self.dk_age = None
         self.target_seen = 0
         self.errors = 0
+        self.restarts = 0
         self.last_line = ""
         self.others = {}
         self._stop = threading.Event()
@@ -93,10 +94,15 @@ class BleLink:
             try:
                 scanner = BleakScanner(cb, scanning_mode="active", bluez={"filters": {"DuplicateData": True}})
                 await scanner.start()
+                started = time.time()
                 while not self._stop.is_set():
                     await asyncio.sleep(0.2)
-                    if self.last_heartbeat and time.time() - self.last_heartbeat > 5:
+                    quiet = time.time() - (self.last_heartbeat or started)
+                    if quiet > 4:
+                        # BlueZ sometimes stops surfacing duplicate advertisements; a scan restart fixes it.
                         self.connected = False
+                        self.restarts += 1
+                        break
                 await scanner.stop()
             except Exception:
                 self.errors += 1

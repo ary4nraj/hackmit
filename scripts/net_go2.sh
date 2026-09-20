@@ -33,12 +33,18 @@ for c in $(nmcli -t -f NAME,TYPE con show --active | grep ":802-3-ethernet" | cu
   nmcli con modify "$c" ipv4.dns-priority 10 ipv4.dns "1.1.1.1 8.8.8.8" ipv4.ignore-auto-dns yes ipv6.dns-priority 10 >/dev/null 2>&1 || true
   nmcli con up "$c" >/dev/null 2>&1 || true
 done
-pw="$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('GO2_WIFI_PASSWORD',''))")"
-[ -n "$pw" ] || { echo "GO2_WIFI_PASSWORD missing in .env"; exit 1; }
-for c in $(nmcli -t -f NAME con show | grep "^Go2_"); do nmcli con delete "$c" >/dev/null 2>&1 || true; done
-nmcli dev wifi rescan >/dev/null 2>&1 || true; sleep 4
-ssid="$(nmcli -t -f SSID,SIGNAL dev wifi list | grep "^Go2_${serial}" | sort -t: -k2 -rn | head -1 | cut -d: -f1)"
-[ -n "$ssid" ] || { echo "no Go2_${serial}_* AP visible; is the robot on?"; exit 1; }
+[ "$(id -u)" = 0 ] && { echo "run this as your normal user, not with sudo"; exit 1; }
+pw="$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('GO2_WIFI_PASSWORD',''))" 2>/dev/null || true)"
+[ -n "$pw" ] || { echo "GO2_WIFI_PASSWORD missing in .env (or .venv python broken)"; exit 1; }
+for c in $(nmcli -t -f NAME con show | grep "^Go2_" || true); do nmcli con delete "$c" >/dev/null 2>&1 || true; done
+ssid=""
+for attempt in 1 2 3 4 5 6; do
+  nmcli dev wifi rescan >/dev/null 2>&1 || true; sleep 4
+  ssid="$(nmcli -t -f SSID,SIGNAL dev wifi list 2>/dev/null | grep "^Go2_${serial}" | sort -t: -k2 -rn | head -1 | cut -d: -f1 || true)"
+  [ -n "$ssid" ] && break
+  echo "scan $attempt/6: no Go2_${serial}_* yet (visible: $(nmcli -t -f SSID dev wifi list 2>/dev/null | grep -c '^Go2_' || true) other Go2)"
+done
+[ -n "$ssid" ] || { echo "no Go2_${serial}_* AP visible after 6 scans; is the robot on and nearby?"; exit 1; }
 echo "joining $ssid"
 nmcli con add type wifi ifname wlp1s0 con-name "$ssid" ssid "$ssid" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$pw" \
   ipv4.never-default yes ipv6.never-default yes ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes \
