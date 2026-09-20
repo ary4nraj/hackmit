@@ -45,6 +45,15 @@ Merged image: `firmware/nordic/signalhound_merged.hex` (app + net). Two options:
 - Two threads printing interleaved lines (`SCAN,SCAN,...`); printing is now under a mutex.
 - Scan window == interval (continuous) to maximise target packet rate.
 
+## Cable-free mode (RADIO_LINK=ble) — verified 2026-09-19 20:2x
+The DK also advertises (non-connectable, 100–150 ms) a batch of its last 16 target RSSI samples with a
+running index (manufacturer data, company 0xFFFF, `SH` magic). The laptop's own Bluetooth reads it
+with `bleak` (`signalhound/radio/ble_link.py`), dedups by index, and feeds the same filter. Measured
+~1.2 target samples/s end to end. BlueZ only surfaces ~1 advertisement update per 2 s per device
+(passive scanning needs experimental BlueZ), which is why each advertisement carries a batch.
+On the dog: DK + USB power bank, no laptop cable. Set `RADIO_LINK=ble` in `.env`. Serial output
+keeps working when a cable is attached (`RADIO_LINK=serial`).
+
 ## Verify
 `python scripts/radio_monitor.py --raw` should show `BOOT,0.1,...`, `SCAN,n,m` every second and
 `TARGET,Galaxy S25,-6x,<addr>` lines while the phone advertises.

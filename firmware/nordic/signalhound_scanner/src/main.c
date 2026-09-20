@@ -34,6 +34,41 @@ struct name_ctx {
 	bool found;
 };
 
+/* Rebroadcast: the DK advertises its recent target measurements so a laptop's own Bluetooth can
+ * read them without a USB cable. BlueZ only surfaces ~1 update per 2 s per device, so each
+ * advertisement carries a BATCH. Manufacturer data (company 0xFFFF = test ID):
+ *   'S' 'H' seq(u8) idx(u16 LE: running count of target packets, = index of newest sample)
+ *   n(u8 <= 16) age_ds(u8: deciseconds since newest, 255 = none) then n x int8 RSSI, newest first. */
+#define HIST 16
+static int8_t hist[HIST];
+static int64_t last_target_ms;
+static uint8_t mfg[2 + 2 + 1 + 2 + 1 + 1 + HIST];
+static const struct bt_data ad[] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR),
+	BT_DATA(BT_DATA_MANUFACTURER_DATA, mfg, sizeof(mfg)),
+};
+static const struct bt_data sd[] = {
+	BT_DATA(BT_DATA_NAME_COMPLETE, "SignalHound", 11),
+};
+
+static void fill_mfg(uint8_t seq)
+{
+	uint32_t total = target_total;
+	uint8_t n = total < HIST ? (uint8_t)total : HIST;
+	int64_t age = k_uptime_get() - last_target_ms;
+
+	mfg[0] = 0xFF; mfg[1] = 0xFF; mfg[2] = 'S'; mfg[3] = 'H';
+	mfg[4] = seq;
+	mfg[5] = (uint8_t)(total & 0xff);
+	mfg[6] = (uint8_t)((total >> 8) & 0xff);
+	mfg[7] = n;
+	mfg[8] = (total == 0 || age > 25400) ? 255 : (uint8_t)(age / 100);
+	for (uint8_t i = 0; i < HIST; i++) {
+		/* newest first: sample index total-1-i lives at hist[(total-1-i) % HIST] */
+		mfg[9 + i] = (i < n) ? (uint8_t)hist[(total - 1 - i) % HIST] : 0x80;
+	}
+}
+
 static bool parse_name(struct bt_data *data, void *user_data)
 {
 	struct name_ctx *ctx = user_data;
@@ -59,7 +94,9 @@ static void scan_cb(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type, str
 		return;
 	}
 	if (strcmp(ctx.name, CONFIG_SH_TARGET_NAME) == 0) {
+		hist[target_total % HIST] = rssi;
 		target_total++;
+		last_target_ms = k_uptime_get();
 		bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 		k_mutex_lock(&print_lock, K_FOREVER);
 		printk("TARGET,%s,%d,%s\n", ctx.name, rssi, addr_str);
@@ -120,11 +157,24 @@ int main(void)
 		return 0;
 	}
 
+	/* Non-connectable advertising alongside scanning; 100-150 ms interval. */
+	struct bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(
+		BT_LE_ADV_OPT_NONE, BT_GAP_ADV_FAST_INT_MIN_2, BT_GAP_ADV_FAST_INT_MAX_2, NULL);
+	fill_mfg(0);
+	err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+	printk("ADVSTART,%d\n", err);
+
+	uint8_t seq = 0;
+	uint32_t tick = 0;
 	while (1) {
-		k_sleep(K_SECONDS(1));
-		k_mutex_lock(&print_lock, K_FOREVER);
-		printk("SCAN,%u,%u\n", packets_total, target_total);
-		k_mutex_unlock(&print_lock);
+		k_sleep(K_MSEC(100));
+		fill_mfg(++seq);
+		bt_le_adv_update_data(ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+		if (++tick % 10 == 0) {
+			k_mutex_lock(&print_lock, K_FOREVER);
+			printk("SCAN,%u,%u\n", packets_total, target_total);
+			k_mutex_unlock(&print_lock);
+		}
 	}
 	return 0;
 }

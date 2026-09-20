@@ -13,7 +13,7 @@ import time
 
 from signalhound.config import Config
 from signalhound.dashboard import render
-from signalhound.radio.nordic_serial import NordicSerial
+from signalhound.radio import make_radio
 from signalhound.robot.mock import MockRobot
 
 
@@ -23,7 +23,7 @@ async def main():
     p.add_argument("--log", default="")
     a = p.parse_args()
     cfg = Config()
-    radio = NordicSerial(cfg).start()
+    radio = make_radio(cfg).start()
     robot = MockRobot()
     if a.robot:
         from signalhound.robot.go2 import Go2Robot

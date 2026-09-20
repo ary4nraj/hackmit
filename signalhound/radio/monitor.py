@@ -5,7 +5,7 @@ import sys
 import time
 
 from signalhound.config import Config
-from signalhound.radio.nordic_serial import NordicSerial
+from signalhound.radio import make_radio
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
             log.write(f"{time.time():.3f},{line.name},{line.rssi}\n")
             log.flush()
 
-    radio = NordicSerial(cfg, on_line).start()
+    radio = make_radio(cfg, on_line).start()
     print(f"SignalHound radio monitor · target '{cfg.target_name}' · Ctrl+C to quit")
     try:
         while True:

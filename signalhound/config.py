@@ -21,6 +21,8 @@ class Config:
     # Target beacon (BLE local name advertised by nRF Connect on the phone)
     target_name: str = field(default_factory=lambda: os.getenv("TARGET_NAME", "Galaxy S25"))
     # Serial link to the Nordic DK (auto-detect SEGGER J-Link VCOM when empty)
+    # serial: DK on USB. ble: DK rebroadcasts its measurement, read by the laptop's Bluetooth (no cable).
+    radio_link: str = field(default_factory=lambda: os.getenv("RADIO_LINK", "serial").lower())
     serial_port: str = field(default_factory=lambda: os.getenv("NORDIC_SERIAL_PORT", ""))
     serial_baud: int = field(default_factory=lambda: _i("NORDIC_SERIAL_BAUD", 115200))
     # RSSI filtering

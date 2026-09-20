@@ -40,10 +40,10 @@ async def main():
         radio = MockRadio(cfg, robot, RadioField(tx, ty, noise_db=3.0))
         cfg.settle_seconds = 0.2
     else:
-        from signalhound.radio.nordic_serial import NordicSerial
+        from signalhound.radio import make_radio
         from signalhound.robot.go2 import Go2Robot
 
-        radio = NordicSerial(cfg).start()
+        radio = make_radio(cfg).start()
         robot = Go2Robot(cfg)
         await robot.connect()
         await asyncio.sleep(1.0)
