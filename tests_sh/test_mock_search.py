@@ -21,7 +21,7 @@ def run_case(tx, ty, yaw=0.0, noise=2.0, dropout=0.0, seed=1, max_moves=80):
     cfg.max_moves = max_moves
     cfg.search_timeout_seconds = 10_000
     cfg.settle_seconds = 0
-    cfg.target_rssi_threshold = -47
+    cfg.target_rssi_threshold = -52  # calibrated default: ~1 m for a hand-held phone
     cfg.target_rssi_hold_seconds = 0
     robot = MockRobot(yaw=yaw)
     field = RadioField(tx, ty, noise_db=noise, dropout=dropout, seed=seed)
@@ -71,7 +71,7 @@ def test_scan_mode_converges_with_directional_antenna():
     cfg.max_moves = 150
     cfg.search_timeout_seconds = 10_000
     cfg.settle_seconds = 0
-    cfg.target_rssi_threshold = -47
+    cfg.target_rssi_threshold = -52  # calibrated default: ~1 m for a hand-held phone
     cfg.target_rssi_hold_seconds = 0
     robot = MockRobot(yaw=math.pi)
     radio = MockRadio(cfg, robot, RadioField(4, 2, noise_db=4.0, dropout=0.1, seed=2, front_back_db=10))
