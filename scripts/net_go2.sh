@@ -9,7 +9,12 @@ serial="${GO2_SERIAL:-61034}"
 if [ "${1:-}" = "test" ]; then
   # Self-contained probe: switch to the robot, log diagnostics, switch back automatically.
   log="data/logs/netprobe-$(date +%H%M%S).log"; mkdir -p data/logs
-  { "$0"; sleep 3; echo "--- routes ---"; ip route | grep default; echo "--- dns ---"; resolvectl status 2>/dev/null | grep -E "Link|DNS Servers|Default Route" | head -12
+  { "$0"; sleep 3; echo "--- routes ---"; ip route | grep default; ip route get 1.1.1.1 | head -1; echo "--- dns ---"; resolvectl status 2>/dev/null | grep -E "^Link|DNS Servers|DefaultRoute|Current DNS" | head -16
+    T="$(ip -br link | awk '/^enx/{print $1; exit}')"
+    echo -n "ip-only https via tether: "; curl -4 -s -o /dev/null -m 8 --interface "$T" -w "%{http_code}\n" https://1.1.1.1/ || echo FAIL
+    echo -n "ip-only https default route: "; curl -4 -s -o /dev/null -m 8 -w "%{http_code}\n" https://1.1.1.1/ || echo FAIL
+    echo -n "resolvectl query: "; resolvectl query api.anthropic.com 2>&1 | head -2 | tr '\n' ' '; echo
+    echo -n "dig @1.1.1.1 via tether: "; dig +short +time=3 @1.1.1.1 api.anthropic.com 2>&1 | head -1
     echo -n "plain curl: "; curl -4 -s -o /dev/null -m 8 -w "%{http_code}\n" https://api.anthropic.com/ || echo FAIL
     echo -n "curl via tether: "; curl -4 -s -o /dev/null -m 8 --interface "$(ip -br link | awk '/^enx/{print $1; exit}')" -w "%{http_code}\n" https://api.anthropic.com/ || echo FAIL
     echo -n "dns lookup: "; getent hosts api.anthropic.com | head -1 || echo FAIL
@@ -23,6 +28,11 @@ if [ "${1:-}" = "off" ]; then
   nmcli con up id "${NORMAL_WIFI:-HackMIT.2026}" >/dev/null 2>&1 || true
   nmcli -t -f NAME,DEVICE con show --active | head -1; exit 0
 fi
+# Re-apply the tether profile so its DNS settings (set below on first run) are live.
+for c in $(nmcli -t -f NAME,TYPE con show --active | grep ":802-3-ethernet" | cut -d: -f1); do
+  nmcli con modify "$c" ipv4.dns-priority 10 ipv4.dns "1.1.1.1 8.8.8.8" ipv4.ignore-auto-dns yes ipv6.dns-priority 10 >/dev/null 2>&1 || true
+  nmcli con up "$c" >/dev/null 2>&1 || true
+done
 pw="$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('GO2_WIFI_PASSWORD',''))")"
 [ -n "$pw" ] || { echo "GO2_WIFI_PASSWORD missing in .env"; exit 1; }
 for c in $(nmcli -t -f NAME con show | grep "^Go2_"); do nmcli con delete "$c" >/dev/null 2>&1 || true; done
