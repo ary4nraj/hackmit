@@ -3,7 +3,7 @@
 ## WORKING
 - **RADIO MILESTONE (real hardware):** nRF7002-DK flashed (app scanner + hci_ipc), streams `TARGET,Galaxy S25,<rssi>,<addr>` over USB; `python scripts/radio_monitor.py` shows raw/filtered RSSI and tracking status. First readings −62…−78 dBm.
 - **CABLE-FREE RADIO:** the DK rebroadcasts its measurements over BLE; the laptop reads them with its own Bluetooth (`RADIO_LINK=ble`, ~1.2 samples/s). The DK can ride on the dog with just a power bank.
-- **FIRST CLOSED LOOP (real hardware):** `demo.sh` ran on the dog: baseline, ENTER, 5 autonomous bursts driven by live RSSI, operator stop. Direction-finding not yet convincing (see BROKEN).
+- **END-TO-END PLUMBING (real hardware):** `demo.sh` ran with the real DK and the real dog: baseline, ENTER, 5 autonomous bursts driven by live RSSI, operator stop. Not a valid closed loop yet: the DK was hand-held, not on the dog.
 - **GO2 MOTION (real hardware):** forward burst moved the dog 0.10 m; rotate burst turned ~8°; both stopped cleanly (StandUp/BalanceStand/Move/StopMove all work over WebRTC).
 - **GO2 CONNECTION (real hardware):** `scripts/go2_status.py` connected over WebRTC LocalAP and streamed telemetry (position, yaw, velocity, range_obstacle, body_height), then disconnected cleanly. Motion not yet tested.
 - Golden path in simulation: `./scripts/demo.sh --mock --yes` → calibrates, hill-climbs, prints TARGET FOUND (12 moves for a target 3.6 m away). 12 SignalHound tests pass (`pytest tests_sh`).
@@ -13,7 +13,7 @@
 - Homing controller with explicit states, reference-based hill climbing, 90° sweep turns, arrival hold, budgets, signal-loss and obstacle branches; terminal dashboard.
 
 ## BROKEN
-- Closed loop run 1: one thin RSSI window was treated as signal-lost and triggered a 90° turn; RSSI swung 15 dB per step. Fixed the window handling; needs run 2 to judge convergence.
+- No valid closed-loop run yet (DK must be mounted on the dog and the phone must stay put). Thin-window handling fixed in the meantime.
 - Target packet rate is low (~0.4/s) because the phone advertises slowly; homing decisions would be sluggish until the interval is lowered (see manual action).
 - The iPhone USB tether is intermittent, so switching the laptop's Wi-Fi to the robot keeps cutting off the coding agent. Fix: put the robot on the same network as the laptop (STA mode) so nothing switches. `range_obstacle` reads [0,0,0,0]: treat as unavailable (obstacle avoidance relies on the Go2's own onboard avoidance + conservative bursts).
 - Joining the Go2 WLAN drops the laptop's internet, which also cuts off the coding agent. Needs a second uplink (phone USB tethering) — `scripts/net_go2.sh` keeps the default route off the robot link.

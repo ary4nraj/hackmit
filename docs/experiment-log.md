@@ -43,7 +43,10 @@ Commanded 0.25 rad, got 0.14: the dog ramps up, so a rotate burst yields ~55% of
 777 rows / 234 s, ~3 samples/s. RSSI −84…−23, 5 s medians −70…−30 depending on where the phone was.
 The four-heading rotation scan was NOT done yet (yaw never changed). Still open.
 
-## TEST 3 — first closed-loop run (21:05:52, DK on the dog via USB, laptop carried behind)
+## TEST 3 — first end-to-end run (21:05:52) — INVALID as a closed loop
+The DK was NOT mounted on the dog and the phone was not fixed: both were hand-held and moving, so the
+RSSI trajectory below is unrelated to the robot's motion. It only proves the plumbing (radio → decision →
+bursts → stop) works on hardware. Do not tune thresholds from it.
 | step | position (x,y,yaw°) | RSSI ref → after | n | verdict / action |
 |---|---|---|---|---|
 | baseline | 0.50,−0.34,−137 | −65 | | |
@@ -52,7 +55,7 @@ The four-heading rotation scan was NOT done yet (yaw never changed). Still open.
 | 3 after turn | 0.29,−0.80,−71 | −75 | | |
 | 4 forward | 0.42,−1.19,−66 | −75 → −72 | | IMPROVED → advance |
 | 5 forward | 0.60,−1.55,−62 | −72 → −74 | | INCONCLUSIVE; operator Ctrl+C |
-Lessons: (1) the beacon rate on the moving dog is low enough that a 5-sample window can time out;
+Lessons (plumbing only): (1) a 5-sample window can time out at the observed beacon rate;
 now any ≥2-sample window is used and only silence counts as lost. (2) A single burst can swing RSSI
 15 dB (−65→−50→−73): multipath + bodies; hysteresis must come from more samples per decision, not
 from smaller thresholds. (3) ~11 s per step with the old timeouts; settle/timeout reduced to 1 s / 5 s.
