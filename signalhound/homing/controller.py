@@ -191,6 +191,18 @@ class HomingController:
                         self._set("ADVANCING", f"signal fell {r_best - r:.0f} dB on this heading; rescanning")
                         break
 
+    def _why_no_signal(self):
+        snap = self.radio.snapshot()
+        link = getattr(self.cfg, "radio_link", "serial")
+        if not snap.get("connected"):
+            if link == "ble":
+                return "no broadcasts from the DK: is it powered (power bank auto-off? LED1 blinking?) and within ~10 m?"
+            return f"no serial port / no lines from the DK (port={snap.get('port')}): USB cable? firmware running?"
+        dk_age = getattr(self.radio, "dk_age", None)
+        if link == "ble" and dk_age == 255:
+            return f"DK alive (link {getattr(self.radio, 'link_rssi', '?')} dBm) but it does NOT hear '{self.cfg.target_name}': phone screen on? nRF Connect advertising?"
+        return f"DK alive, waiting for '{self.cfg.target_name}' packets (heartbeat {snap.get('heartbeat_age')} s ago)"
+
     def elapsed(self):
         return 0.0 if self.started is None else self.clock() - self.started
 
@@ -214,6 +226,7 @@ class HomingController:
             if self.stop_requested:
                 return self._set("STOPPED", "operator stop")
             await asyncio.to_thread(self.radio.wait_for_samples, 1, 1.0)
+            self._set("WAITING_FOR_SIGNAL", self._why_no_signal())
         self._set("CALIBRATING", "collecting baseline")
         baseline = await self._measure("baseline")
         if baseline is None:
