@@ -64,3 +64,13 @@ from smaller thresholds. (3) ~11 s per step with the old timeouts; settle/timeou
 - RSSI_IMPROVEMENT_DB / RSSI_WORSEN_DB:
 - MOVE_STEP_SECONDS / PROBE_PATIENCE:
 - TARGET_RSSI_THRESHOLD (arrival):
+
+## TEST 4 — run 2 (21:16:53): phone taped on the dog, DK + laptop with the person. First VALID closed loop.
+Baseline −87 dBm (!), windows of 1–4 packets: the beacon on the dog is at the DK's receiver floor.
+Trajectory: −87 → −75 (IMPROVED, advance) → −79 (WORSENED, turn) → −80.5 → 1-packet window → lost →
+rotate → −87 → operator stop after 7 moves, ~1.4 m travelled. Mechanically correct; radio hopeless.
+Compare: same phone reads −40 at arm's length and −58 on a table. Taped flat against the dog's body/battery
+it is losing ~20 dB. FIX THE MOUNT before the next run: phone upright or on foam, top edge (antenna) up
+and clear of the metal body, screen on; verify with `radio_monitor.py` that the baseline at the start
+distance is better than −75 dBm. The controller now warns on a baseline ≤ −80 and, when a step silences
+the beacon, backs up before rotating. Steps are now 0.6 m (2 s) and WORSEN needs 5 dB.

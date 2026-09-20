@@ -23,6 +23,7 @@ class HomingController:
         self.confirm = confirm  # async callable returning True to start moving
         self.log_file = None
         self.last_measure_n = 0
+        self.lost_streak = 0
         self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db)
         self.state = "WAITING_FOR_SIGNAL"
         self.decision = ""
@@ -55,7 +56,12 @@ class HomingController:
         snap = self.radio.snapshot()
         n = snap.get("samples") or 0
         # A slow beacon must not look like a lost one: accept a thin window, give up only on (near) silence.
-        rssi = snap.get("filtered") if (ok or n >= 2) else None
+        if not ok and n < self.cfg.decision_min_samples:
+            # Thin window: give the beacon one more chance before judging.
+            await asyncio.to_thread(self.radio.wait_for_samples, self.cfg.decision_min_samples, self.cfg.measure_timeout_seconds)
+            snap = self.radio.snapshot()
+            n = snap.get("samples") or 0
+        rssi = snap.get("filtered") if n >= 2 else None
         self.last_measure_n = n
         x, y = await self.robot.get_position()
         yaw = await self.robot.get_yaw()
@@ -108,7 +114,13 @@ class HomingController:
             await asyncio.to_thread(self.radio.wait_for_samples, 1, 1.0)
         self._set("CALIBRATING", "collecting baseline")
         baseline = await self._measure("baseline")
-        self._set("CALIBRATING", f"baseline {baseline:.1f} dBm" if baseline is not None else "no baseline")
+        if baseline is None:
+            self._set("CALIBRATING", "no baseline")
+        elif baseline <= self.cfg.weak_signal_dbm:
+            self._set("CALIBRATING", f"baseline {baseline:.1f} dBm is at the receiver floor (<= {self.cfg.weak_signal_dbm}): "
+                      "homing will be noise. Fix the beacon mounting / move closer before starting.")
+        else:
+            self._set("CALIBRATING", f"baseline {baseline:.1f} dBm")
         if self.confirm and not await self.confirm(self):
             return self._set("STOPPED", "operator declined")
         self.started = self.clock()
@@ -123,12 +135,19 @@ class HomingController:
             if self._found(current):
                 return self._set("FOUND", f"sustained {current:.1f} dBm ≥ {self.cfg.target_rssi_threshold} dBm")
             if current is None:
-                self._set("SIGNAL_LOST", "target silent; rotating slowly to re-acquire")
-                await self.guard.rotate(+1, seconds=self.cfg.rotate_step_seconds)
+                self.lost_streak += 1
+                if self.lost_streak == 1 and self.moves > 0:
+                    # The last step probably carried us out of range: undo it before anything else.
+                    self._set("SIGNAL_LOST", "target silent after a step; backing up to the last good spot")
+                    await self.guard.backward(seconds=self.cfg.move_step_seconds)
+                else:
+                    self._set("SIGNAL_LOST", "target still silent; rotating slowly to re-acquire")
+                    await self.guard.rotate(+1, seconds=self.cfg.rotate_step_seconds)
                 self.moves += 1
                 current = await self._measure("reacquire")
                 ref = current
                 continue
+            self.lost_streak = 0
             if await self._obstacle_ahead():
                 self._set("AVOIDING_OBSTACLE", "obstacle ahead; turning")
                 await self.guard.rotate(self.strategy.next_turn(), seconds=self.cfg.rotate_step_seconds)

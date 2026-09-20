@@ -28,18 +28,20 @@ class Config:
     # RSSI filtering
     rssi_window: int = field(default_factory=lambda: _i("RSSI_WINDOW", 10))
     rssi_min_samples: int = field(default_factory=lambda: _i("RSSI_MIN_SAMPLES", 4))
+    decision_min_samples: int = field(default_factory=lambda: _i("DECISION_MIN_SAMPLES", 3))
+    weak_signal_dbm: float = field(default_factory=lambda: _f("WEAK_SIGNAL_DBM", -80))
     rssi_ema_alpha: float = field(default_factory=lambda: _f("RSSI_EMA_ALPHA", 0.4))
     rssi_stale_seconds: float = field(default_factory=lambda: _f("RSSI_STALE_SECONDS", 6.0))
     # Homing decisions (dB). Larger RSSI (less negative) = stronger.
     rssi_improvement_db: float = field(default_factory=lambda: _f("RSSI_IMPROVEMENT_DB", 3.0))
-    rssi_worsen_db: float = field(default_factory=lambda: _f("RSSI_WORSEN_DB", 3.0))
+    rssi_worsen_db: float = field(default_factory=lambda: _f("RSSI_WORSEN_DB", 5.0))
     target_rssi_threshold: float = field(default_factory=lambda: _f("TARGET_RSSI_THRESHOLD", -45))
     target_rssi_hold_seconds: float = field(default_factory=lambda: _f("TARGET_RSSI_HOLD_SECONDS", 2.0))
     measure_timeout_seconds: float = field(default_factory=lambda: _f("MEASURE_TIMEOUT_SECONDS", 5.0))
     settle_seconds: float = field(default_factory=lambda: _f("SETTLE_SECONDS", 1.0))
     # Motion bursts (robot.py enforces the caps; these are the defaults)
     move_speed: float = field(default_factory=lambda: _f("MOVE_SPEED", 0.3))
-    move_step_seconds: float = field(default_factory=lambda: _f("MOVE_STEP_SECONDS", 1.5))
+    move_step_seconds: float = field(default_factory=lambda: _f("MOVE_STEP_SECONDS", 2.0))
     rotate_speed: float = field(default_factory=lambda: _f("ROTATE_SPEED", 0.8))
     rotate_step_seconds: float = field(default_factory=lambda: _f("ROTATE_STEP_SECONDS", 2.0))
     max_move_speed: float = 0.5
@@ -48,7 +50,7 @@ class Config:
     # Search limits
     search_timeout_seconds: float = field(default_factory=lambda: _f("SEARCH_TIMEOUT_SECONDS", 180))
     max_moves: int = field(default_factory=lambda: _i("MAX_MOVES", 60))
-    probe_patience: int = field(default_factory=lambda: _i("PROBE_PATIENCE", 4))
+    probe_patience: int = field(default_factory=lambda: _i("PROBE_PATIENCE", 3))
     trend_db: float = field(default_factory=lambda: _f("TREND_DB", 1.5))
     obstacle_stop_m: float = field(default_factory=lambda: _f("OBSTACLE_STOP_M", 0.6))
     # Go2 connection (secrets come from env only; never committed)
