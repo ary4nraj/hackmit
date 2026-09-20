@@ -24,7 +24,7 @@ class HomingController:
         self.log_file = None
         self.last_measure_n = 0
         self.lost_streak = 0
-        self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db)
+        self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db, turn_patience=cfg.turn_patience)
         self.state = "WAITING_FOR_SIGNAL"
         self.decision = ""
         self.best_rssi = None
@@ -88,6 +88,69 @@ class HomingController:
         except (TypeError, ValueError):
             return False
         return front is not None and 0 < front < self.cfg.obstacle_stop_m
+
+    async def _turn(self, direction, big=False):
+        secs = min(self.cfg.rotate_step_seconds * (2 if big else 1), self.cfg.max_burst_seconds)
+        await self.guard.rotate(direction, seconds=secs)
+        self.moves += 1
+
+    async def _step(self):
+        await self.guard.forward(seconds=self.cfg.move_step_seconds)
+        self.moves += 1
+        await self.sleep(self.cfg.settle_seconds)
+
+    def _budget_left(self):
+        return not self.stop_requested and self.elapsed() <= self.cfg.search_timeout_seconds and self.moves < self.cfg.max_moves
+
+    async def _probe_sides(self, ref0, first_dir, d_forward=None):
+        """Level 2: when the current heading is flat/worse, test BOTH sides with short probes and commit
+        to the better one. Returns (rssi_now, committed_dir, delta) with committed_dir in {+1,-1}."""
+        steps = self.cfg.side_probe_steps
+        names = {1: "left", -1: "right"}
+        # A single noisy reading must not become the yardstick: re-measure here without moving.
+        again = await self._measure("recheck")
+        if again is not None and ref0 is not None:
+            ref0 = (ref0 + again) / 2
+        elif again is not None:
+            ref0 = again
+        # Side A
+        self._set("PROBING", f"flat heading (ref {ref0 if ref0 is None else round(ref0,1)}): probing {names[first_dir]} ({steps} steps)")
+        await self._turn(first_dir)
+        for _ in range(steps):
+            if not self._budget_left():
+                return None, first_dir, None
+            await self._step()
+        rA = await self._measure(f"probe {names[first_dir]}")
+        dA = None if (rA is None or ref0 is None) else rA - ref0
+        if dA is not None and dA >= self.cfg.trend_db:
+            self._set("PROBING", f"{names[first_dir]} probe {dA:+.1f} dB → commit {names[first_dir]}")
+            return rA, first_dir, dA
+        # Side B: turn around, pass back through the decision point, probe the other side
+        self._set("PROBING", f"{names[first_dir]} probe {'n/a' if dA is None else f'{dA:+.1f} dB'}: trying {names[-first_dir]}")
+        await self._turn(first_dir)
+        await self._turn(first_dir)
+        for _ in range(2 * steps):
+            if not self._budget_left():
+                return None, -first_dir, None
+            await self._step()
+        rB = await self._measure(f"probe {names[-first_dir]}")
+        dB = None if (rB is None or ref0 is None) else rB - ref0
+        if dB is not None and dB >= self.cfg.trend_db and (dA is None or dB >= dA):
+            self._set("PROBING", f"{names[-first_dir]} probe {dB:+.1f} dB → commit {names[-first_dir]}")
+            return rB, -first_dir, dB
+        # Nothing clearly better: pick the least-bad of forward / A / B.
+        cands = {"forward": d_forward, names[first_dir]: dA, names[-first_dir]: dB}
+        best = max((k for k in cands if cands[k] is not None), key=lambda k: cands[k], default=names[-first_dir])
+        fmt = lambda v: "n/a" if v is None else f"{v:+.1f}"  # noqa: E731
+        self._set("PROBING", f"all flat (fwd {fmt(d_forward)} / {names[first_dir]} {fmt(dA)} / {names[-first_dir]} {fmt(dB)}): continuing {best}")
+        if best == "forward":
+            await self._turn(first_dir)            # from B's heading, one turn back to the original heading
+            return rB, first_dir, d_forward
+        if best == names[first_dir]:
+            await self._turn(first_dir)
+            await self._turn(first_dir)            # turn around: head back through the decision point toward A
+            return rB, first_dir, dA
+        return rB, -first_dir, dB
 
     def elapsed(self):
         return 0.0 if self.started is None else self.clock() - self.started
@@ -156,19 +219,28 @@ class HomingController:
                 ref = current if current is not None else ref
                 continue
             # --- ONE bounded action, then stop, settle, measure ---
+            if action.startswith("turn") and self.cfg.side_probe_steps > 0:
+                first_dir = +1 if "left" in action else -1
+                d_forward = None if (current is None or ref is None) else current - ref
+                r1, chosen, delta = await self._probe_sides(current, first_dir, d_forward)
+                self.strategy.turn_dir = chosen
+                self.strategy.inconclusive = 0
+                if delta is not None and delta >= self.cfg.trend_db:
+                    self.strategy.turns_in_a_row = 0
+                ref = current if r1 is not None else ref
+                action = "advance"
+                current = r1 if r1 is not None else current
+                if r1 is not None:
+                    ref = r1 - (delta or 0.0)  # keep the pre-probe reference so gains keep accumulating
+                continue
             if action.startswith("turn"):
                 self._set("SEARCHING", f"{action} then probe")
-                big = action.endswith("_big")
-                await self.guard.rotate(+1 if "left" in action else -1,
-                                        seconds=min(self.cfg.rotate_step_seconds * (2 if big else 1), self.cfg.max_burst_seconds))
-                self.moves += 1
+                await self._turn(+1 if "left" in action else -1, big=action.endswith("_big"))
                 ref = current  # new heading: judge it against where we are now
                 self._set("PROBING", "probing new heading")
             else:
                 self._set("ADVANCING", "moving forward")
-            await self.guard.forward(seconds=self.cfg.move_step_seconds)
-            self.moves += 1
-            await self.sleep(self.cfg.settle_seconds)
+            await self._step()
             r1 = await self._measure(action)
             verdict = compare(ref, r1, self.cfg.rssi_improvement_db, self.cfg.rssi_worsen_db)
             delta = None if (ref is None or r1 is None) else r1 - ref

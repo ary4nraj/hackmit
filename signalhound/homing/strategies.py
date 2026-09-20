@@ -22,8 +22,10 @@ def compare(reference, current, improve_db, worsen_db):
 
 
 class HillClimb:
-    def __init__(self, patience=3, sweep_limit=6, trend_db=1.5):
+    def __init__(self, patience=3, sweep_limit=6, trend_db=1.5, turn_patience=None):
         self.patience = patience          # no-gain steps along a heading before turning
+        self.turn_patience = turn_patience or patience  # shorter budget for the first heading after a turn
+        self.fresh_heading = False
         self.sweep_limit = sweep_limit    # turns in one direction before flipping the sweep
         self.trend_db = trend_db          # a gain this big (below the hard threshold) still counts as "getting warmer"
         self.turn_dir = 1                 # +1 left / -1 right
@@ -32,6 +34,7 @@ class HillClimb:
 
     def _turn(self):
         self.inconclusive = 0
+        self.fresh_heading = True
         self.turns_in_a_row += 1
         if self.turns_in_a_row > self.sweep_limit:
             self.turn_dir = -self.turn_dir
@@ -51,11 +54,13 @@ class HillClimb:
         if verdict == IMPROVED:
             self.inconclusive = 0
             self.turns_in_a_row = 0
+            self.fresh_heading = False
             return "advance"
         if verdict == WORSENED:
             return self._turn()
         self.inconclusive += 1
-        if self.inconclusive >= self.patience:
+        if self.inconclusive >= (self.turn_patience if self.fresh_heading else self.patience):
+            self.fresh_heading = False
             self.inconclusive = 0
             if delta is not None and delta >= self.trend_db:
                 self.turns_in_a_row = 0

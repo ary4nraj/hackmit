@@ -74,3 +74,16 @@ it is losing ~20 dB. FIX THE MOUNT before the next run: phone upright or on foam
 and clear of the metal body, screen on; verify with `radio_monitor.py` that the baseline at the start
 distance is better than −75 dBm. The controller now warns on a baseline ≤ −80 and, when a step silences
 the beacon, backs up before rotating. Steps are now 0.6 m (2 s) and WORSEN needs 5 dB.
+
+## TEST 5 — run 3 (09:27, DK + power bank on the dog, BLE link, person holding the phone)
+Baseline −67.8 dBm, n=8 (healthy). Forward x3 (1.25 m, heading ~10°): −70, −68, −70 = flat →
+patience exhausted → TURN LEFT (default sweep direction) → probe 0.5 m: −64.4 (+6 dB) → advance → operator
+stop ("turned the wrong direction"). By RSSI the left probe was the best reading of the run, so either the
+person was left-ish or the +6 dB was a noisy high (n=4). Person position relative to the dog: to be confirmed.
+
+Conclusion on "wrong direction": with one omnidirectional antenna the first side turn is a coin flip; there
+is no information to choose left vs right until the dog has moved. Simulation of alternatives (16 cases,
+3–5 dB noise, 10% packet loss): plain sweep w/ 3-step probes 16/16 (36 moves); shorter post-turn probes
+15/16 with 8 m runaways; two-sided probing 11–14/16 with 12–17 m runaways (noisy references cause false
+commits). Kept the plain sweep. A wrong first turn costs one 1.3 m probe, then the sweep continues.
+Demo tip: start the dog roughly facing the area to search; it does not need to face the person.

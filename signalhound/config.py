@@ -48,8 +48,10 @@ class Config:
     max_rotate_speed: float = 1.0
     max_burst_seconds: float = 2.0
     # Search limits
-    search_timeout_seconds: float = field(default_factory=lambda: _f("SEARCH_TIMEOUT_SECONDS", 180))
+    search_timeout_seconds: float = field(default_factory=lambda: _f("SEARCH_TIMEOUT_SECONDS", 300))
     max_moves: int = field(default_factory=lambda: _i("MAX_MOVES", 60))
+    side_probe_steps: int = field(default_factory=lambda: _i("SIDE_PROBE_STEPS", 0))
+    turn_patience: int = field(default_factory=lambda: _i("TURN_PATIENCE", 3))
     probe_patience: int = field(default_factory=lambda: _i("PROBE_PATIENCE", 3))
     trend_db: float = field(default_factory=lambda: _f("TREND_DB", 1.5))
     obstacle_stop_m: float = field(default_factory=lambda: _f("OBSTACLE_STOP_M", 0.6))
