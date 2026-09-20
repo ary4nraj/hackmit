@@ -22,6 +22,7 @@ class HomingController:
         self.on_update = on_update or (lambda c: None)
         self.confirm = confirm  # async callable returning True to start moving
         self.log_file = None
+        self.last_measure_n = 0
         self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db)
         self.state = "WAITING_FOR_SIGNAL"
         self.decision = ""
@@ -40,8 +41,9 @@ class HomingController:
         if self.log_file:
             snap = self.radio.snapshot()
             self.log_file.write(
-                f"{time.strftime('%H:%M:%S')} {state:18s} moves={self.moves:3d} rssi={snap.get('filtered')} "
-                f"best={self.best_rssi} | {self.decision}\n"
+                f"{time.strftime('%H:%M:%S')} {state:18s} moves={self.moves:3d} n={self.last_measure_n:2d} "
+                f"rssi={None if snap.get('filtered') is None else round(snap['filtered'], 1)} "
+                f"best={None if self.best_rssi is None else round(self.best_rssi, 1)} | {self.decision}\n"
             )
             self.log_file.flush()
         self.on_update(self)
@@ -50,10 +52,14 @@ class HomingController:
         """Fresh window after a move; returns filtered RSSI or None if the target is silent."""
         self.radio.reset_window()
         ok = await asyncio.to_thread(self.radio.wait_for_samples, self.cfg.rssi_min_samples, self.cfg.measure_timeout_seconds)
-        rssi = self.radio.get_filtered_rssi() if ok else None
+        snap = self.radio.snapshot()
+        n = snap.get("samples") or 0
+        # A slow beacon must not look like a lost one: accept a thin window, give up only on (near) silence.
+        rssi = snap.get("filtered") if (ok or n >= 2) else None
+        self.last_measure_n = n
         x, y = await self.robot.get_position()
         yaw = await self.robot.get_yaw()
-        self.history.add(x, y, yaw, rssi, self.state, label)
+        self.history.add(x, y, yaw, rssi, self.state, f"{label} n={n}")
         if rssi is not None:
             self.last_rssi = rssi
             if self.best_rssi is None or rssi > self.best_rssi:

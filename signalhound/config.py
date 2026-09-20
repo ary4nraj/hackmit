@@ -27,7 +27,7 @@ class Config:
     serial_baud: int = field(default_factory=lambda: _i("NORDIC_SERIAL_BAUD", 115200))
     # RSSI filtering
     rssi_window: int = field(default_factory=lambda: _i("RSSI_WINDOW", 10))
-    rssi_min_samples: int = field(default_factory=lambda: _i("RSSI_MIN_SAMPLES", 5))
+    rssi_min_samples: int = field(default_factory=lambda: _i("RSSI_MIN_SAMPLES", 4))
     rssi_ema_alpha: float = field(default_factory=lambda: _f("RSSI_EMA_ALPHA", 0.4))
     rssi_stale_seconds: float = field(default_factory=lambda: _f("RSSI_STALE_SECONDS", 6.0))
     # Homing decisions (dB). Larger RSSI (less negative) = stronger.
@@ -35,8 +35,8 @@ class Config:
     rssi_worsen_db: float = field(default_factory=lambda: _f("RSSI_WORSEN_DB", 3.0))
     target_rssi_threshold: float = field(default_factory=lambda: _f("TARGET_RSSI_THRESHOLD", -45))
     target_rssi_hold_seconds: float = field(default_factory=lambda: _f("TARGET_RSSI_HOLD_SECONDS", 2.0))
-    measure_timeout_seconds: float = field(default_factory=lambda: _f("MEASURE_TIMEOUT_SECONDS", 8.0))
-    settle_seconds: float = field(default_factory=lambda: _f("SETTLE_SECONDS", 1.5))
+    measure_timeout_seconds: float = field(default_factory=lambda: _f("MEASURE_TIMEOUT_SECONDS", 5.0))
+    settle_seconds: float = field(default_factory=lambda: _f("SETTLE_SECONDS", 1.0))
     # Motion bursts (robot.py enforces the caps; these are the defaults)
     move_speed: float = field(default_factory=lambda: _f("MOVE_SPEED", 0.3))
     move_step_seconds: float = field(default_factory=lambda: _f("MOVE_STEP_SECONDS", 1.5))
