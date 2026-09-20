@@ -8,6 +8,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$root"
 serial="${GO2_SERIAL:-61034}"
 if [ "${1:-}" = "off" ]; then
   for c in $(nmcli -t -f NAME con show | grep "^Go2_"); do nmcli con down "$c" >/dev/null 2>&1 || true; done
+  nmcli con modify "${NORMAL_WIFI:-HackMIT.2026}" connection.autoconnect yes >/dev/null 2>&1 || true
   nmcli con up id "${NORMAL_WIFI:-HackMIT.2026}" >/dev/null 2>&1 || true
   nmcli -t -f NAME,DEVICE con show --active | head -1; exit 0
 fi

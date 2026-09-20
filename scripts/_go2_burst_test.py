@@ -4,6 +4,7 @@ import sys as _sys, pathlib as _pl
 _sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
 import asyncio
 import json
+import sys
 
 from signalhound.config import Config
 from signalhound.robot.go2 import Go2Robot
@@ -22,9 +23,13 @@ async def run(kind, speed, seconds):
         if not before["telemetry_fresh"]:
             print("no fresh telemetry; refusing to move")
             return
-        if input(f"{kind} {speed} for {seconds}s. Floor clear? type YES: ").strip() != "YES":
-            print("aborted")
-            return
+        import os
+
+        if os.getenv("SH_CONFIRM") != "YES" and "--yes" not in sys.argv:
+            if input(f"{kind} {speed} for {seconds}s. Floor clear? type YES: ").strip() != "YES":
+                print("aborted")
+                return
+        print(f"executing {kind} {speed} for {seconds}s")
         await robot.stand_up()
         if kind == "forward":
             await guard.forward(speed, seconds)
