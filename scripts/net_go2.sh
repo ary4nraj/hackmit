@@ -6,6 +6,17 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$root"
 serial="${GO2_SERIAL:-61034}"
+if [ "${1:-}" = "test" ]; then
+  # Self-contained probe: switch to the robot, log diagnostics, switch back automatically.
+  log="data/logs/netprobe-$(date +%H%M%S).log"; mkdir -p data/logs
+  { "$0"; sleep 3; echo "--- routes ---"; ip route | grep default; echo "--- dns ---"; resolvectl status 2>/dev/null | grep -E "Link|DNS Servers|Default Route" | head -12
+    echo -n "plain curl: "; curl -4 -s -o /dev/null -m 8 -w "%{http_code}\n" https://api.anthropic.com/ || echo FAIL
+    echo -n "curl via tether: "; curl -4 -s -o /dev/null -m 8 --interface "$(ip -br link | awk '/^enx/{print $1; exit}')" -w "%{http_code}\n" https://api.anthropic.com/ || echo FAIL
+    echo -n "dns lookup: "; getent hosts api.anthropic.com | head -1 || echo FAIL
+    echo -n "robot: "; ping -c 1 -W 2 192.168.12.1 >/dev/null && echo ok || echo unreachable
+    sleep "${PROBE_HOLD:-10}"; "$0" off; } > "$log" 2>&1
+  echo "$log"; exit 0
+fi
 if [ "${1:-}" = "off" ]; then
   for c in $(nmcli -t -f NAME con show | grep "^Go2_"); do nmcli con down "$c" >/dev/null 2>&1 || true; done
   nmcli con modify "${NORMAL_WIFI:-HackMIT.2026}" connection.autoconnect yes >/dev/null 2>&1 || true
@@ -20,8 +31,11 @@ ssid="$(nmcli -t -f SSID,SIGNAL dev wifi list | grep "^Go2_${serial}" | sort -t:
 [ -n "$ssid" ] || { echo "no Go2_${serial}_* AP visible; is the robot on?"; exit 1; }
 echo "joining $ssid"
 nmcli con add type wifi ifname wlp1s0 con-name "$ssid" ssid "$ssid" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$pw" \
-  ipv4.never-default yes ipv6.never-default yes connection.autoconnect no >/dev/null
+  ipv4.never-default yes ipv6.never-default yes ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes \
+  ipv4.dns-priority 500 connection.autoconnect no >/dev/null
+# The tether (or Ethernet) must win DNS once Wi-Fi is on the robot.
+for c in $(nmcli -t -f NAME,TYPE con show | grep ":802-3-ethernet" | cut -d: -f1); do nmcli con modify "$c" ipv4.dns-priority 10 ipv4.dns "1.1.1.1 8.8.8.8" >/dev/null 2>&1 || true; done
 nmcli con up "$ssid" | tail -1
 sleep 2
 echo -n "robot:    "; ping -c 1 -W 2 192.168.12.1 >/dev/null 2>&1 && echo "reachable (192.168.12.1)" || echo "NOT reachable"
-echo -n "internet: "; curl -s -o /dev/null -m 6 -w "%{http_code}" https://api.anthropic.com/ >/dev/null 2>&1 && echo "OK ($(ip route | awk '/^default/{print $5; exit}'))" || echo "NONE — enable USB tethering on the phone (Settings > Connections > Mobile Hotspot and Tethering > USB tethering) and plug it in"
+echo -n "internet: "; curl -4 -s -o /dev/null -m 8 -w "%{http_code}" https://api.anthropic.com/ >/dev/null 2>&1 && echo "OK ($(ip route | awk '/^default/{print $5; exit}'))" || echo "NONE — check the USB tether (phone hotspot on, cable in) and DNS: resolvectl status"

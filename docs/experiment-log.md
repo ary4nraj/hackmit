@@ -30,6 +30,11 @@ the controller's SIGNAL_LOST branch (rotate slowly, re-acquire) will trigger the
 | 270° | |
 Conclusion: (fill in) "orientation scan insufficient; use translational probing" or otherwise.
 
+## TEST 2b — first Go2 motion (20:3x, `go2_forward_test.py --yes`, 0.2 m/s x 0.5 s)
+before x=0.504 y=0.012 yaw=-1.540 → after x=0.497 y=-0.091: |Δ| = 0.10 m along the heading, Δyaw -0.04 rad.
+StandUp + BalanceStand accepted (mode 0, body_height 0.32), Move 1008 streamed, StopMove 1003 stopped it
+cleanly, WebRTC disconnected cleanly. `range_obstacle` stayed [0,0,0,0]: not usable as-is.
+
 ## TEST 3 — first closed-loop bursts
 | step | position | RSSI before | RSSI after | verdict |
 |---|---|---|---|---|
