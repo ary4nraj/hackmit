@@ -51,9 +51,10 @@ class MockRobot:
 class RadioField:
     """Synthetic RSSI: C - 10*n*log10(d) + noise, optional body-shadow + dropouts."""
 
-    def __init__(self, tx, ty, c=-40.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1, front_back_db=0.0):
+    def __init__(self, tx, ty, c=-40.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1, front_back_db=0.0, ripple_db=0.0, ripple_m=0.5):
         self.tx, self.ty, self.c, self.n, self.noise_db, self.dropout = tx, ty, c, n, noise_db, dropout
         self.front_back_db = front_back_db  # antenna pattern: +/- half this between facing and facing away
+        self.ripple_db, self.ripple_m = ripple_db, ripple_m  # multipath: position-dependent standing-wave ripple
         self.rng = random.Random(seed)
 
     def rssi_at(self, x, y, yaw=None):
@@ -64,7 +65,8 @@ class RadioField:
         if yaw is not None and self.front_back_db:
             bearing = math.atan2(self.ty - y, self.tx - x)
             gain = 0.5 * self.front_back_db * math.cos(bearing - yaw)
-        return self.c - 10 * self.n * math.log10(d + 0.3) + gain + self.rng.gauss(0, self.noise_db)
+        ripple = self.ripple_db * math.sin(2 * math.pi * x / self.ripple_m) * math.cos(2 * math.pi * y / (self.ripple_m * 1.37)) if self.ripple_db else 0.0
+        return self.c - 10 * self.n * math.log10(d + 0.3) + gain + ripple + self.rng.gauss(0, self.noise_db)
 
 
 class MockRadio:

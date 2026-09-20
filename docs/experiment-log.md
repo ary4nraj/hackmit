@@ -87,3 +87,13 @@ is no information to choose left vs right until the dog has moved. Simulation of
 15/16 with 8 m runaways; two-sided probing 11–14/16 with 12–17 m runaways (noisy references cause false
 commits). Kept the plain sweep. A wrong first turn costs one 1.3 m probe, then the sweep continues.
 Demo tip: start the dog roughly facing the area to search; it does not need to face the person.
+
+## TEST 6 — run 4 (10:01, DK on dog via BLE, climb mode): 16 moves, ~6 m, walked a loop, no approach
+Baseline −63 (n=7). Headings: S 1.3 m (−62,−60,−66) → L → −73 → L big → −70 → −67 → −72 → L → −66 → −66,
+−70,−71 → L → −66; ended 0.9 m from the start after a full loop. RSSI rippled −60…−73 with no consistent
+gradient over the 1.3 m probes: classic indoor multipath (standing-wave ripple is a function of position, so
+time-averaging in one spot cannot remove it). Best reading −60.5 at 0.9 m south of the start.
+Change: Level-3 plane fit. When a heading goes flat, fit RSSI ≈ a·x + b·y + c over the last 12 odometry
+points (needs ≥0.8 m span in both axes, i.e. after the first turn) and turn along (a,b) instead of the
+blind sweep. Simulation with a 5 dB ripple model: 10/12 → 12/12, 44 → 36 moves, worst wander 8.4 → 4.0 m.
+Still untested: the dog's own body-shadow directional contrast (`scripts/spin_scan.py`, 40 s).

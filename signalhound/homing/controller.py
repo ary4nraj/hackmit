@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 import time
 
 from signalhound.homing.history import History
@@ -287,6 +288,29 @@ class HomingController:
                 if r1 is not None:
                     ref = r1 - (delta or 0.0)  # keep the pre-probe reference so gains keep accumulating
                 continue
+            if action.startswith("turn") and self.cfg.gradient_points > 0:
+                g = self.history.gradient(k=self.cfg.gradient_points)
+                if g is not None:
+                    a, b, r2 = g
+                    mag = math.hypot(a, b)
+                    if mag >= self.cfg.gradient_min_db_per_m and r2 >= self.cfg.gradient_min_r2:
+                        heading = math.atan2(b, a)
+                        self._set("SEARCHING", f"plane fit over last {self.cfg.gradient_points} points: {mag:.1f} dB/m toward {round(math.degrees(heading))}° (R²={r2:.2f}) → turning there")
+                        await scanmod.rotate_to(self, heading)
+                        self.strategy.inconclusive = 0
+                        ref = current
+                        action = "advance"
+                        self._set("PROBING", "probing gradient heading")
+                        await self._step()
+                        r1 = await self._measure("gradient")
+                        verdict = compare(ref, r1, self.cfg.rssi_improvement_db, self.cfg.rssi_worsen_db)
+                        delta = None if (ref is None or r1 is None) else r1 - ref
+                        action = self.strategy.decide(verdict, delta)
+                        self._set(self.state, f"ref {'n/a' if ref is None else f'{ref:.1f}'} → now {'n/a' if r1 is None else f'{r1:.1f}'} dBm {verdict} → {action.upper()}")
+                        if verdict != INCONCLUSIVE:
+                            ref = r1
+                        current = r1
+                        continue
             if action.startswith("turn"):
                 self._set("SEARCHING", f"{action} then probe")
                 await self._turn(+1 if "left" in action else -1, big=action.endswith("_big"))

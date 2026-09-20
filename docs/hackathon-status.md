@@ -15,13 +15,13 @@
 - Homing controller with explicit states, reference-based hill climbing, 90° sweep turns, arrival hold, budgets, signal-loss and obstacle branches; terminal dashboard.
 
 ## BROKEN
-- First side turn is a coin flip (single omni RSSI); a wrong guess costs one 1.3 m probe. Smarter variants tested in simulation and rejected (they run away).
+- Run 4: no approach over 6 m; indoor multipath ripple (±6 dB) hides the gradient at 4+ m. Mitigation shipped: plane-fit gradient steering (12/12 in a rippled sim). Unverified on the floor. Body-shadow spin scan still unmeasured.
 - Target packet rate is low (~0.4/s) because the phone advertises slowly; homing decisions would be sluggish until the interval is lowered (see manual action).
 - The iPhone USB tether is intermittent, so switching the laptop's Wi-Fi to the robot keeps cutting off the coding agent. Fix: put the robot on the same network as the laptop (STA mode) so nothing switches. `range_obstacle` reads [0,0,0,0]: treat as unavailable (obstacle avoidance relies on the Go2's own onboard avoidance + conservative bursts).
 - Joining the Go2 WLAN drops the laptop's internet, which also cuts off the coding agent. Needs a second uplink (phone USB tethering) — `scripts/net_go2.sh` keeps the default route off the robot link.
 
 ## NEXT 3 TASKS
-1. Foil reflector behind the DK, then `scripts/spin_scan.py`: need >= 8 dB heading contrast (simulation: 8 dB → 9/10 converge, 12 dB → 10/10, 0 dB → 2/10).
+1. 40 s test: `scripts/spin_scan.py` to measure the dog's own heading contrast; ≥6 dB → HOMING_MODE=scan. Then run 5 (climb + gradient steering) from ≤3 m.
 2. Run 4 with `./scripts/demo.sh` in scan mode (default now); goal is a FOUND. Then rehearse with the person around a corner.
 3. If contrast can't reach 8 dB: fall back to HOMING_MODE=climb and a 3 m start distance.
 2. Tune from the logs: PROBE_PATIENCE / RSSI_IMPROVEMENT_DB / arrival threshold.

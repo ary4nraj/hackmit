@@ -55,6 +55,10 @@ class Config:
     scan_headings: int = field(default_factory=lambda: _i("SCAN_HEADINGS", 6))
     scan_go_steps: int = field(default_factory=lambda: _i("SCAN_GO_STEPS", 3))
     scan_abort_drop_db: float = field(default_factory=lambda: _f("SCAN_ABORT_DROP_DB", 8.0))
+    # Level 3: when a heading goes flat, fit a plane over the last N odometry+RSSI points and turn along its gradient
+    gradient_points: int = field(default_factory=lambda: _i("GRADIENT_POINTS", 12))
+    gradient_min_db_per_m: float = field(default_factory=lambda: _f("GRADIENT_MIN_DB_PER_M", 0.8))
+    gradient_min_r2: float = field(default_factory=lambda: _f("GRADIENT_MIN_R2", 0.25))
     side_probe_steps: int = field(default_factory=lambda: _i("SIDE_PROBE_STEPS", 0))
     turn_patience: int = field(default_factory=lambda: _i("TURN_PATIENCE", 3))
     probe_patience: int = field(default_factory=lambda: _i("PROBE_PATIENCE", 3))
