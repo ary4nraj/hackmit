@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import signal
 import sys
+import time
 
 from signalhound.config import Config
 from signalhound.dashboard import Ticker, render
@@ -56,6 +57,9 @@ async def main():
 
     os.makedirs("data", exist_ok=True)
     ctl = HomingController(cfg, radio, robot, guard, History(a.history), confirm=None if (a.mock and a.yes) else confirm)
+    os.makedirs("data/logs", exist_ok=True)
+    ctl.log_file = open(f"data/logs/homing-{time.strftime('%Y%m%d-%H%M%S')}.log", "a")
+    ctl.log_file.write(f"# mode={'mock' if a.mock else 'hardware'} radio={cfg.radio_link} target={cfg.target_name} cfg={vars(cfg)}\n")
     tick = Ticker()
     ctl.on_update = lambda c: render(cfg, radio, robot, c) if tick.due() or c.state in ("FOUND", "STOPPED", "ERROR") else None
     task = asyncio.create_task(ctl.run())
@@ -76,6 +80,9 @@ async def main():
         else:
             print(f"\nEnded in state {ctl.state}: {ctl.decision}\n")
         radio.stop()
+        if ctl.log_file:
+            ctl.log_file.write(f"# END state={ctl.state} moves={ctl.moves} best={ctl.best_rssi}\n")
+            ctl.log_file.close()
         if not a.mock:
             await robot.disconnect()
     return 0 if ctl.state == "FOUND" else 1

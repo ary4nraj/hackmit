@@ -21,6 +21,7 @@ class HomingController:
         self.sleep, self.clock = sleep, clock
         self.on_update = on_update or (lambda c: None)
         self.confirm = confirm  # async callable returning True to start moving
+        self.log_file = None
         self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db)
         self.state = "WAITING_FOR_SIGNAL"
         self.decision = ""
@@ -36,6 +37,13 @@ class HomingController:
         self.state = state
         if decision is not None:
             self.decision = decision
+        if self.log_file:
+            snap = self.radio.snapshot()
+            self.log_file.write(
+                f"{time.strftime('%H:%M:%S')} {state:18s} moves={self.moves:3d} rssi={snap.get('filtered')} "
+                f"best={self.best_rssi} | {self.decision}\n"
+            )
+            self.log_file.flush()
         self.on_update(self)
 
     async def _measure(self, label=""):
