@@ -51,7 +51,7 @@ class MockRobot:
 class RadioField:
     """Synthetic RSSI: C - 10*n*log10(d) + noise, optional body-shadow + dropouts."""
 
-    def __init__(self, tx, ty, c=-40.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1, front_back_db=0.0, ripple_db=0.0, ripple_m=0.5):
+    def __init__(self, tx, ty, c=-48.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1, front_back_db=0.0, ripple_db=0.0, ripple_m=0.5):
         self.tx, self.ty, self.c, self.n, self.noise_db, self.dropout = tx, ty, c, n, noise_db, dropout
         self.front_back_db = front_back_db  # antenna pattern: +/- half this between facing and facing away
         self.ripple_db, self.ripple_m = ripple_db, ripple_m  # multipath: position-dependent standing-wave ripple

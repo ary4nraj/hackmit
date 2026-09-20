@@ -26,6 +26,7 @@ class HomingController:
         self.log_file = None
         self.last_measure_n = 0
         self.lost_streak = 0
+        self.returns = 0
         self.strategy = HillClimb(patience=cfg.probe_patience, trend_db=cfg.trend_db, turn_patience=cfg.turn_patience)
         self.state = "WAITING_FOR_SIGNAL"
         self.decision = ""
@@ -204,6 +205,48 @@ class HomingController:
             return f"DK alive (link {getattr(self.radio, 'link_rssi', '?')} dBm) but it does NOT hear '{self.cfg.target_name}': phone screen on? nRF Connect advertising?"
         return f"DK alive, waiting for '{self.cfg.target_name}' packets (heartbeat {snap.get('heartbeat_age')} s ago)"
 
+    async def _passed_best(self, r1):
+        """If we are near the target (best seen ≥ near_db) and the signal just dropped well below the best
+        spot, which is ≥ 0.6 m away, go back there. Returns None when not applicable."""
+        best = self.history.best()
+        if r1 is None or best is None or best.x is None or self.best_rssi is None:
+            return None
+        if self.best_rssi < self.cfg.near_db or r1 > self.best_rssi - self.cfg.passed_drop_db:
+            return None
+        if self.returns >= self.cfg.max_returns:
+            return None
+        x, y = await self.robot.get_position()
+        if x is None or math.hypot(best.x - x, best.y - y) < 0.6:
+            return None
+        return await self._final_approach(best)
+
+    async def _go_to_point(self, bx, by, max_steps=5):
+        """Odometry-guided return to a known point: face it, step until within ~0.4 m."""
+        for _ in range(max_steps):
+            if not self._budget_left() or self.stop_requested:
+                return
+            x, y = await self.robot.get_position()
+            if x is None:
+                return
+            dist = math.hypot(bx - x, by - y)
+            if dist < 0.4:
+                return
+            await scanmod.rotate_to(self, math.atan2(by - y, bx - x))
+            await self._step()
+
+    async def _final_approach(self, best):
+        """We passed the strongest spot: go back to it and decide there."""
+        self.returns += 1
+        self._set("ADVANCING", f"signal fell below the best spot ({best.rssi:.0f} dBm): returning to it (return {self.returns}/{self.cfg.max_returns})")
+        await self._go_to_point(best.x, best.y)
+        r = await self._measure("back at best")
+        if r is None:
+            return None, False
+        if r >= self.cfg.target_rssi_threshold - self.cfg.found_at_best_margin_db:
+            self._set("FOUND", f"at the strongest spot: {r:.1f} dBm (best seen {best.rssi:.0f}); target is right here")
+            return r, True
+        return r, False
+
     def elapsed(self):
         return 0.0 if self.started is None else self.clock() - self.started
 
@@ -320,6 +363,16 @@ class HomingController:
                 self._set("ADVANCING", "moving forward")
             await self._step()
             r1 = await self._measure(action)
+            passed = await self._passed_best(r1)
+            if passed is not None:
+                r_back, done = passed
+                if done:
+                    return
+                current = r_back if r_back is not None else current
+                ref = current
+                action = "advance"
+                self.strategy.inconclusive = 0
+                continue
             verdict = compare(ref, r1, self.cfg.rssi_improvement_db, self.cfg.rssi_worsen_db)
             delta = None if (ref is None or r1 is None) else r1 - ref
             action = self.strategy.decide(verdict, delta)

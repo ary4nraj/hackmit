@@ -35,7 +35,7 @@ class Config:
     # Homing decisions (dB). Larger RSSI (less negative) = stronger.
     rssi_improvement_db: float = field(default_factory=lambda: _f("RSSI_IMPROVEMENT_DB", 3.0))
     rssi_worsen_db: float = field(default_factory=lambda: _f("RSSI_WORSEN_DB", 5.0))
-    target_rssi_threshold: float = field(default_factory=lambda: _f("TARGET_RSSI_THRESHOLD", -45))
+    target_rssi_threshold: float = field(default_factory=lambda: _f("TARGET_RSSI_THRESHOLD", -52))
     target_rssi_hold_seconds: float = field(default_factory=lambda: _f("TARGET_RSSI_HOLD_SECONDS", 2.0))
     measure_timeout_seconds: float = field(default_factory=lambda: _f("MEASURE_TIMEOUT_SECONDS", 5.0))
     settle_seconds: float = field(default_factory=lambda: _f("SETTLE_SECONDS", 1.0))
@@ -55,6 +55,12 @@ class Config:
     scan_headings: int = field(default_factory=lambda: _i("SCAN_HEADINGS", 6))
     scan_go_steps: int = field(default_factory=lambda: _i("SCAN_GO_STEPS", 3))
     scan_abort_drop_db: float = field(default_factory=lambda: _f("SCAN_ABORT_DROP_DB", 8.0))
+    # Final approach: once the best reading is ≥ near_db, a drop of passed_drop_db below it means we passed the
+    # target: return to the best spot (odometry) and stop there if within found_at_best_margin_db of the threshold.
+    near_db: float = field(default_factory=lambda: _f("NEAR_DB", -60))
+    passed_drop_db: float = field(default_factory=lambda: _f("PASSED_DROP_DB", 4.0))
+    found_at_best_margin_db: float = field(default_factory=lambda: _f("FOUND_AT_BEST_MARGIN_DB", 3.0))
+    max_returns: int = field(default_factory=lambda: _i("MAX_RETURNS", 3))
     # Level 3: when a heading goes flat, fit a plane over the last N odometry+RSSI points and turn along its gradient
     gradient_points: int = field(default_factory=lambda: _i("GRADIENT_POINTS", 12))
     gradient_min_db_per_m: float = field(default_factory=lambda: _f("GRADIENT_MIN_DB_PER_M", 0.8))
