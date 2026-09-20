@@ -97,3 +97,12 @@ Change: Level-3 plane fit. When a heading goes flat, fit RSSI ≈ a·x + b·y + 
 points (needs ≥0.8 m span in both axes, i.e. after the first turn) and turn along (a,b) instead of the
 blind sweep. Simulation with a 5 dB ripple model: 10/12 → 12/12, 44 → 36 moves, worst wander 8.4 → 4.0 m.
 Still untested: the dog's own body-shadow directional contrast (`scripts/spin_scan.py`, 40 s).
+
+## TEST 7 — run 5 (10:08, climb + gradient steering): boxed around the person, cancelled while closing in
+39 moves / 3.8 min / ~12 m. S 1.4 m (flat) → E 1.3 m (−60 then worse) → N (worse) → plane fit → SW 2.2 m
+(−67 → −57.6, then −62.6) → plane fit SW (wrong, −73) → SE (−61 → −56, then −65) → NE: −63, −59, −54, −51.3
+and rising when the operator cancelled. Peak readings −56…−51 within ~1–2 m of the person on several
+passes; the dog never saw −45 because a hand-held phone is body-shadowed by 10–20 dB on the far side.
+Fixes: arrival −52 dBm; "passed it" reflex — once best ≥ −60 and the reading drops ≥ 4 dB below the best
+spot (≥ 0.6 m away), return to that spot by odometry and stop there if ≥ −55 (max 3 returns). Mock
+recalibrated to real levels (−48 dBm at 1 m); with a 5 dB ripple model: 12/12 found, mean stop distance 1.4 m.
