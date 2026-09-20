@@ -35,6 +35,10 @@ before x=0.504 y=0.012 yaw=-1.540 → after x=0.497 y=-0.091: |Δ| = 0.10 m alon
 StandUp + BalanceStand accepted (mode 0, body_height 0.32), Move 1008 streamed, StopMove 1003 stopped it
 cleanly, WebRTC disconnected cleanly. `range_obstacle` stayed [0,0,0,0]: not usable as-is.
 
+## TEST 2c — first Go2 rotation (`go2_rotate_test.py --yes`, left 0.5 rad/s x 0.5 s)
+yaw -1.706 → -1.563 rad (Δ +0.143 rad ≈ 8°), position drift < 2 cm. Clean stop/disconnect.
+Commanded 0.25 rad, got 0.14: the dog ramps up, so a rotate burst yields ~55% of the nominal angle.
+
 ## TEST 3 — first closed-loop bursts
 | step | position | RSSI before | RSSI after | verdict |
 |---|---|---|---|---|

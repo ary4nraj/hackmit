@@ -3,7 +3,7 @@
 ## WORKING
 - **RADIO MILESTONE (real hardware):** nRF7002-DK flashed (app scanner + hci_ipc), streams `TARGET,Galaxy S25,<rssi>,<addr>` over USB; `python scripts/radio_monitor.py` shows raw/filtered RSSI and tracking status. First readings −62…−78 dBm.
 - **CABLE-FREE RADIO:** the DK rebroadcasts its measurements over BLE; the laptop reads them with its own Bluetooth (`RADIO_LINK=ble`, ~1.2 samples/s). The DK can ride on the dog with just a power bank.
-- **GO2 MOTION (real hardware):** forward burst test moved the dog 0.10 m and stopped cleanly (StandUp/BalanceStand/Move/StopMove all work over WebRTC).
+- **GO2 MOTION (real hardware):** forward burst moved the dog 0.10 m; rotate burst turned ~8°; both stopped cleanly (StandUp/BalanceStand/Move/StopMove all work over WebRTC).
 - **GO2 CONNECTION (real hardware):** `scripts/go2_status.py` connected over WebRTC LocalAP and streamed telemetry (position, yaw, velocity, range_obstacle, body_height), then disconnected cleanly. Motion not yet tested.
 - Golden path in simulation: `./scripts/demo.sh --mock --yes` → calibrates, hill-climbs, prints TARGET FOUND (12 moves for a target 3.6 m away). 12 SignalHound tests pass (`pytest tests_sh`).
 - Radio stack: `signalhound/radio/` (auto-detect J-Link VCOM, reconnect, CSV protocol, rolling median + EMA, quality/staleness), `python scripts/radio_monitor.py --raw`.
@@ -13,7 +13,7 @@
 
 ## BROKEN
 - Target packet rate is low (~0.4/s) because the phone advertises slowly; homing decisions would be sluggish until the interval is lowered (see manual action).
-- Rotation burst not yet tested. `range_obstacle` reads [0,0,0,0]: treat as unavailable (obstacle avoidance relies on the Go2's own onboard avoidance + conservative bursts).
+- The iPhone USB tether is intermittent, so switching the laptop's Wi-Fi to the robot keeps cutting off the coding agent. Fix: put the robot on the same network as the laptop (STA mode) so nothing switches. `range_obstacle` reads [0,0,0,0]: treat as unavailable (obstacle avoidance relies on the Go2's own onboard avoidance + conservative bursts).
 - Joining the Go2 WLAN drops the laptop's internet, which also cuts off the coding agent. Needs a second uplink (phone USB tethering) — `scripts/net_go2.sh` keeps the default route off the robot link.
 
 ## NEXT 3 TASKS
