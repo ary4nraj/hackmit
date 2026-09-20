@@ -51,15 +51,20 @@ class MockRobot:
 class RadioField:
     """Synthetic RSSI: C - 10*n*log10(d) + noise, optional body-shadow + dropouts."""
 
-    def __init__(self, tx, ty, c=-40.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1):
+    def __init__(self, tx, ty, c=-40.0, n=2.2, noise_db=2.5, dropout=0.0, seed=1, front_back_db=0.0):
         self.tx, self.ty, self.c, self.n, self.noise_db, self.dropout = tx, ty, c, n, noise_db, dropout
+        self.front_back_db = front_back_db  # antenna pattern: +/- half this between facing and facing away
         self.rng = random.Random(seed)
 
-    def rssi_at(self, x, y):
+    def rssi_at(self, x, y, yaw=None):
         if self.dropout and self.rng.random() < self.dropout:
             return None
         d = math.hypot(self.tx - x, self.ty - y)
-        return self.c - 10 * self.n * math.log10(d + 0.3) + self.rng.gauss(0, self.noise_db)
+        gain = 0.0
+        if yaw is not None and self.front_back_db:
+            bearing = math.atan2(self.ty - y, self.tx - x)
+            gain = 0.5 * self.front_back_db * math.cos(bearing - yaw)
+        return self.c - 10 * self.n * math.log10(d + 0.3) + gain + self.rng.gauss(0, self.noise_db)
 
 
 class MockRadio:
@@ -75,7 +80,7 @@ class MockRadio:
 
     def sample(self, n=None):
         for _ in range(n or self.samples_per_read):
-            r = self.field.rssi_at(self.robot.x, self.robot.y)
+            r = self.field.rssi_at(self.robot.x, self.robot.y, self.robot.yaw)
             if r is not None:
                 self.filter.add(r, time.time())
 

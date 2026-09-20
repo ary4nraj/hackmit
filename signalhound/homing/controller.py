@@ -6,6 +6,7 @@ import time
 
 from signalhound.homing.history import History
 from signalhound.homing.strategies import IMPROVED, INCONCLUSIVE, HillClimb, compare
+from signalhound.homing import scan as scanmod
 
 log = logging.getLogger("signalhound.homing")
 
@@ -152,6 +153,44 @@ class HomingController:
             return rB, first_dir, dA
         return rB, -first_dir, dB
 
+    async def _run_scan(self, current):
+        """Spin-scan → face best → go; repeat. Arrival and budgets checked after every measurement."""
+        while True:
+            if self.stop_requested:
+                return self._set("STOPPED", "operator stop")
+            if not self._budget_left():
+                return self._set("STOPPED", "search budget exhausted")
+            if self._found(current):
+                return self._set("FOUND", f"sustained {current:.1f} dBm ≥ {self.cfg.target_rssi_threshold} dBm")
+            self._set("SEARCHING", "spin scan")
+            readings = await scanmod.spin_scan(self)
+            yaw, r_best = scanmod.best_heading(readings)
+            c = scanmod.contrast(readings)
+            if yaw is None:
+                self._set("SIGNAL_LOST", "no beacon on any heading; waiting")
+                current = await self._measure("wait")
+                continue
+            summary = " ".join(f"{scanmod.deg(y)}°:{'n/a' if v is None else f'{v:.0f}'}" for y, v, _ in readings)
+            self._set("SEARCHING", f"scan [{summary}] contrast {c:.0f} dB → face {scanmod.deg(yaw)}°")
+            await scanmod.rotate_to(self, yaw)
+            current = r_best
+            if self._found(current):
+                continue
+            # Drive along the best heading; bail if the signal collapses (we passed it or it was noise).
+            for i in range(self.cfg.scan_go_steps):
+                if not self._budget_left() or self.stop_requested:
+                    break
+                self._set("ADVANCING", f"go {i + 1}/{self.cfg.scan_go_steps} toward {scanmod.deg(yaw)}°")
+                await self._step()
+                r = await self._measure(f"go {i + 1}")
+                if r is not None:
+                    current = r
+                    if self._found(current):
+                        break
+                    if r_best is not None and r < r_best - self.cfg.scan_abort_drop_db:
+                        self._set("ADVANCING", f"signal fell {r_best - r:.0f} dB on this heading; rescanning")
+                        break
+
     def elapsed(self):
         return 0.0 if self.started is None else self.clock() - self.started
 
@@ -187,6 +226,8 @@ class HomingController:
         if self.confirm and not await self.confirm(self):
             return self._set("STOPPED", "operator declined")
         self.started = self.clock()
+        if self.cfg.homing_mode == "scan":
+            return await self._run_scan(baseline)
         ref = baseline          # RSSI at the last decision point (heading chosen here)
         current = baseline
         action = "advance"

@@ -21,7 +21,9 @@
 - Joining the Go2 WLAN drops the laptop's internet, which also cuts off the coding agent. Needs a second uplink (phone USB tethering) — `scripts/net_go2.sh` keeps the default route off the robot link.
 
 ## NEXT 3 TASKS
-1. Run 4: let it run past the first turn (don't stop unless unsafe); 4–6 m start distance, person around a corner; goal is a FOUND.
+1. Foil reflector behind the DK, then `scripts/spin_scan.py`: need >= 8 dB heading contrast (simulation: 8 dB → 9/10 converge, 12 dB → 10/10, 0 dB → 2/10).
+2. Run 4 with `./scripts/demo.sh` in scan mode (default now); goal is a FOUND. Then rehearse with the person around a corner.
+3. If contrast can't reach 8 dB: fall back to HOMING_MODE=climb and a 3 m start distance.
 2. Tune from the logs: PROBE_PATIENCE / RSSI_IMPROVEMENT_DB / arrival threshold.
 3. Demo rehearsal: person hides around a corner; record the run.
 

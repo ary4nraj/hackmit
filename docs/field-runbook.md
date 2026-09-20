@@ -21,9 +21,18 @@ Rotate the dog in place through 4 headings and note the median RSSI at each (doc
     ./scripts/sh-python.sh scripts/go2_forward_test.py
     ./scripts/sh-python.sh scripts/go2_rotate_test.py
 
+## 3b. Reflector + spin-scan check (REQUIRED for scan mode)
+Tape a foil-covered card (~15x15 cm) standing vertically on the dog's back 2-3 cm BEHIND the DK's
+antenna edge (antenna faces forward, foil behind it). Then, with the phone ~4 m away in the open:
+    ./scripts/sh-python.sh scripts/spin_scan.py
+It rotates the dog through 6 headings and prints the RSSI at each plus the contrast.
+>= 8 dB between best and worst heading = good; the best heading should point at the phone.
+< 8 dB = enlarge the foil / raise the DK off the body / move the phone closer, and retest.
+
 ## 4. Autonomous homing (golden path)
     ./scripts/demo.sh
-Waits for the beacon, prints the baseline, asks for ENTER, then searches. Stops at FOUND / budget / Ctrl+C.
+Waits for the beacon, prints the baseline, asks for ENTER, then searches. Default HOMING_MODE=scan:
+spin through 6 headings, face the strongest, drive 3 steps, repeat. HOMING_MODE=climb is the old hill-climb. Stops at FOUND / budget / Ctrl+C.
 Logs: data/logs/homing-<stamp>.log (one line per decision) and data/homing-history.jsonl (pose + RSSI).
 Rehearsal without hardware: ./scripts/demo.sh --mock --yes
 

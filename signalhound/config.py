@@ -50,6 +50,11 @@ class Config:
     # Search limits
     search_timeout_seconds: float = field(default_factory=lambda: _f("SEARCH_TIMEOUT_SECONDS", 300))
     max_moves: int = field(default_factory=lambda: _i("MAX_MOVES", 60))
+    # climb = hill climbing with sweep turns; scan = spin-scan N headings, face the strongest, go.
+    homing_mode: str = field(default_factory=lambda: os.getenv("HOMING_MODE", "climb").lower())
+    scan_headings: int = field(default_factory=lambda: _i("SCAN_HEADINGS", 6))
+    scan_go_steps: int = field(default_factory=lambda: _i("SCAN_GO_STEPS", 3))
+    scan_abort_drop_db: float = field(default_factory=lambda: _f("SCAN_ABORT_DROP_DB", 8.0))
     side_probe_steps: int = field(default_factory=lambda: _i("SIDE_PROBE_STEPS", 0))
     turn_patience: int = field(default_factory=lambda: _i("TURN_PATIENCE", 3))
     probe_patience: int = field(default_factory=lambda: _i("PROBE_PATIENCE", 3))

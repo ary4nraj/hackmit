@@ -38,7 +38,7 @@ async def main():
 
         tx, ty = (float(v) for v in a.target.split(","))
         robot = MockRobot(realtime=True)
-        radio = MockRadio(cfg, robot, RadioField(tx, ty, noise_db=3.0))
+        radio = MockRadio(cfg, robot, RadioField(tx, ty, noise_db=3.0, front_back_db=10))  # reflector-like pattern
         cfg.settle_seconds = 0.2
     else:
         from signalhound.radio import make_radio

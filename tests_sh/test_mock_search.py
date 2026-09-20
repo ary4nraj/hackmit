@@ -17,6 +17,7 @@ async def no_sleep(_):
 
 def run_case(tx, ty, yaw=0.0, noise=2.0, dropout=0.0, seed=1, max_moves=80):
     cfg = Config()
+    cfg.homing_mode = "climb"
     cfg.max_moves = max_moves
     cfg.search_timeout_seconds = 10_000
     cfg.settle_seconds = 0
@@ -62,3 +63,19 @@ def test_guard_caps_are_enforced():
     with pytest.raises(RuntimeError):
         asyncio.run(guard.forward())
     assert not robot.bursts
+
+
+def test_scan_mode_converges_with_directional_antenna():
+    cfg = Config()
+    cfg.homing_mode = "scan"
+    cfg.max_moves = 150
+    cfg.search_timeout_seconds = 10_000
+    cfg.settle_seconds = 0
+    cfg.target_rssi_threshold = -47
+    cfg.target_rssi_hold_seconds = 0
+    robot = MockRobot(yaw=math.pi)
+    radio = MockRadio(cfg, robot, RadioField(4, 2, noise_db=4.0, dropout=0.1, seed=2, front_back_db=10))
+    ctl = HomingController(cfg, radio, robot, MotionGuard(robot, cfg), sleep=no_sleep)
+    asyncio.run(ctl.run())
+    assert ctl.state == "FOUND", (ctl.state, ctl.decision)
+    assert math.hypot(4 - robot.x, 2 - robot.y) < 3.0
