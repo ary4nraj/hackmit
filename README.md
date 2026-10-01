@@ -1,128 +1,55 @@
-# Recall Rover
+# SignalHound
 
-**An AI robot that gives physical spaces a memory.**
+**A robot dog that finds a person by radio signal, even when it can't see them.**
 
-Recall Rover stores what it saw and where, then checks whether its memory is still true.
-If a backpack disappears from its remembered location, it invalidates that observation,
-searches a bounded set of zones, and records a move when it recognizes the same object elsewhere.
+A Nordic nRF7002-DK riding on a Unitree Go2 measures the Bluetooth signal strength (RSSI) of the person's phone. The dog takes a step, stops, measures again and climbs the signal until it reaches them. It uses no cameras, no map and no GPS.
 
-## Working now
+Built at HackMIT 2026 by Aryan Raj and Ray Apinyanon. 1st place, Hackster "Create What's Next" challenge.
 
-- **Milestone 1 (software):** remember A → relocate to B → verify A → INVALIDATED → bounded search → discover B → MOVED. Deterministic, `make demo`.
-- **Milestone 2 (real perception):** the same loop with real YOLO detections on real pixels through the stationary-camera backend (`tests/integration/test_webcam_relocation.py`), and live on the laptop webcam (`make run-webcam`).
-- Persistent SQLite evidence/history, age-decayed confidence, explicit knowledge states (KNOWN CURRENT / KNOWN BUT OLD / UNCERTAIN / INVALIDATED).
-- Entity association: registered identity (ArUco/mock) → same-view box overlap → appearance signature with an ambiguity margin. Look-alikes never fabricate a MOVED event.
-- FastAPI dashboard, WebSocket events, annotated camera, memory cards, change timeline, tool trace, STOP.
-- Safety layer: waypoint validation, speed limits, timeouts, serialized motion, latched STOP; dimOS adapter adds an odometry overspeed watchdog on top of dimOS's 0.2 s deadman.
-- OpenAI Responses tool loop when credentials/model are configured; offline commands otherwise.
-- dimOS Go2 adapter with navigation, rotation, stop, battery/health (verified against installed 0.0.14 source, fake-tested). **Milestone 3 (physical Go2 investigation) awaits network provisioning and on-robot commissioning.**
+![System diagram](docs/hackster/signalhound-system-diagram.png)
 
-## Quick start
+## Results
 
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e '.[test]'
-make test
-make demo
-make run
-```
+![Run 5 trajectory](docs/hackster/run5-trajectory.png)
 
-Open http://127.0.0.1:8000. Default configuration is explicitly simulated; it never silently
-substitutes fake observations for hardware. Existing development environment can also run
-`python3 -m pytest -q` and `make run` directly.
+In our last run on the real Go2, the dog made **39 autonomous moves over ~12 m**, steered only by RSSI from the Nordic board. It was closing in at **−51.3 dBm and rising** when the operator stopped it. The full write-up has the run-by-run results, the simulator matrix and what we learned: [docs/hackster/hackster-writeup.md](docs/hackster/hackster-writeup.md).
 
-Click **Recall**, then **Demo: move backpack to back wall**, then **Investigate**.
-Watch `INVALIDATED` and `MOVED` in the timeline. Ask **What changed?**
-The robot’s simulated world is seeded on process start; SQLite memory persists between starts.
-For a fresh demo, use a new database path, e.g. `DATABASE_URL=sqlite:///data/demo-new.db make run`.
+Honest status: the dog never formally declared TARGET FOUND on hardware. The Go2 was borrowed for the event, and we returned it before we could test the final stop rule on the dog.
 
-## Local camera / GX10
+## How it works
+
+1. **Firmware** ([firmware/nordic/signalhound_scanner](firmware/nordic/signalhound_scanner)): a Zephyr app on the nRF5340 app core scans continuously and records the target phone's RSSI. It rebroadcasts its last 16 samples plus a running index in its own BLE advertisement, so the laptop needs no cable to the dog. The net core runs the upstream `hci_ipc` controller.
+2. **Radio layer** ([signalhound/radio](signalhound/radio)): BLE (bleak) or serial input, rolling median + EMA filter, staleness tracking.
+3. **Homing controller** ([signalhound/homing](signalhound/homing)): an explicit state machine. It climbs the signal, probes new headings when the signal goes flat, fits a plane to recent odometry + RSSI points to steer along the gradient, and returns to the strongest spot when it overshoots.
+4. **Safety** ([signalhound/robot/safety.py](signalhound/robot/safety.py)): every motion goes through one guard, with short bursts, hard speed caps, a stop after every burst, a latched STOP on any error, and limits on search time and move count.
+5. **Go2** ([signalhound/robot/go2.py](signalhound/robot/go2.py)): Unitree WebRTC data channel (StandUp, BalanceStand, Move, StopMove, odometry telemetry).
+
+## Try it without hardware
+
+The simulator models path loss, noise, packet loss and multipath ripple:
 
 ```bash
-pip install -e '.[vision]'
-make run-webcam                       # stationary real camera, YOLO, image-region zones
-python -m scripts.test_camera --source 0 --frames 10
-# Package/tag fallback, no YOLO weights required:
-python -m scripts.test_camera --source 0 --tags
+python3 -m venv .venv && . .venv/bin/activate
+pip install python-dotenv pytest
+python scripts/homing_auto.py --mock --yes      # simulated search; ends with TARGET FOUND
+python -m pytest tests_sh -q                    # 17 SignalHound tests
 ```
 
-`ROBOT_BACKEND=webcam` treats the frame's left/centre/right thirds as zones, so moving a real
-object across the view produces the full remember → invalidate → rediscover → MOVED loop with
-genuine detections. `PERCEPTION_PROVIDER=combined` runs YOLO and ArUco together (tagged package).
+## On real hardware
 
-YOLO weights download on first initialization. Set `DETECTOR_MODEL` to an existing local `.pt`
-file for offline operation. `PERCEPTION_DEVICE=cpu` works on this laptop; set `cuda` on GX10 after
-verifying its installed PyTorch supports the device. Camera CLI writes `data/camera.db` separately
-from mock demo memory. It labels location as the configured stationary camera zone.
-ArUco DICT_4X4_50 IDs: 0 package, 1 backpack, 2 bottle. Use unique physical markers.
+- Flash the DK (both cores, over J-Link): `scripts/flash_nordic.sh`. Setup details: [docs/nordic-setup.md](docs/nordic-setup.md).
+- Go2 connection and networking: [docs/go2-setup.md](docs/go2-setup.md).
+- Step-by-step field procedure: [docs/field-runbook.md](docs/field-runbook.md).
+- Every hardware run, with what we changed after it: [docs/experiment-log.md](docs/experiment-log.md).
+- Run: `cp .env.example .env`, fill in the Go2 values, then `./scripts/demo.sh`. Ctrl+C always stops the dog.
 
-## OpenAI
+## Repository layout
 
-```bash
-pip install -e '.[agent]'
-cp .env.example .env
-# Set OPENAI_API_KEY and OPENAI_MODEL in .env; restart the service.
-```
-
-The cloud chooses constrained, schema-validated tools. Perception and memory stay local.
-No API key is exposed to the browser. Tool contracts are tested using a fake API transport;
-cloud calls have not been verified without credentials. A cloud failure stops the task;
-it does not retry physical actions through the offline parser. Direct inspection, memory endpoints,
-and STOP remain available. Offline commands are explicitly labeled and are not an LLM.
-
-## Hardware
-
-See [hardware setup](docs/hardware-setup.md), [verified dimOS APIs](docs/dimos-notes.md),
-[environment findings](docs/environment.md), and [architecture](docs/architecture.md).
-
-```bash
-make replay       # no robot: the real unitree-go2 blueprint on dimOS's recorded Go2 data
-make rpc-check    # verifies every adapter RPC/stream against whichever coordinator is running
-make dimos        # ROBOT_IP=<go2> ./scripts/dimos.sh --nerf-speed 0.45 run unitree-go2 (robot stands up)
-make preflight    # read-only pose/modules/camera check
-ZONES_FILE=config/zones.json ROBOT_BACKEND=dimos PERCEPTION_PROVIDER=local \
-  ./scripts/dimos-python.sh -m scripts.test_navigation --rotate 0.5   # one confirmed bounded move
-make run-dimos    # full service on the robot
-```
-
-Do not treat the software STOP as a substitute for a physical stop.
-
-## API
-
-Interactive API docs: http://127.0.0.1:8000/docs
-
-| Endpoint | Purpose |
+| Path | What |
 |---|---|
-| GET /health, /robot/status, /state | Mode, state, dashboard snapshot |
-| POST /agent/message | `{ "text": "Find my backpack" }` |
-| GET /memory/entities, /memory/search?q=backpack | Evidence with freshness |
-| GET /memory/entity/{id} | Complete observation history |
-| GET /changes?since=0 | Unix-seconds event filter |
-| GET /memory/what-changed?since=0 | Only MOVED/APPEARED/INVALIDATED/DISAPPEARED, oldest first |
-| POST /robot/navigate | Approved zone, e.g. `{ "zone": "entrance" }` |
-| POST /robot/stop, /robot/resume | Latched stop / operator reset |
-| POST /perception/inspect | Observe the current view |
-| POST /demo/relocate | Mock-only `{ "label": "backpack", "zone": "back wall" }`; null hides it |
-| GET /camera/latest | Simulated SVG or real JPEG |
-| WS /ws/events | Bounded live action/result stream |
-
-Bind to loopback. Remote robot deployments should use SSH forwarding or an authenticated reverse
-proxy. This hackathon service is single-process; do not add multiple Uvicorn workers controlling one robot.
-
-## Scope and limitations
-
-Milestones 1 and 2 are complete in software and on a laptop webcam (YOLO11n ~84–130 ms per frame on
-CPU). That is not a GX10 or Go2 benchmark.
-A generated-image ArUco relocation scenario exercises real OpenCV algorithms, but is synthetic
-and does not establish the full live-camera relocation milestone.
-
-Observer pose/semantic zone (or image third) is not the object's measured position. Detector
-class alone cannot identify *your* backpack: relocation of untagged objects is linked by an HSV
-appearance signature with a similarity threshold and margin, which distinguishes a black backpack
-from a red one but not two identical black backpacks (those stay separate candidates, never a
-fabricated MOVED). Mock/ArUco identities remain exact. Occlusion can produce failed verification; the UI reports “not observed,” not certainty
-that an object was removed. Dates in conversational queries require the cloud tool or numeric API filter;
-the offline parser does not interpret arbitrary natural language or time expressions.
-No ESP32, Nordic, Arduino, or Deepgram firmware/integration is claimed. Browser speech is optional
-and may use the browser vendor’s speech service. See [judging](docs/judging.md) for implemented vs planned sponsor use.
+| `signalhound/` | radio, homing controller, robot + safety layers |
+| `firmware/nordic/` | Zephyr scanner source + prebuilt hex files |
+| `scripts/` | demo, field tests, radio monitor, flashing, network helpers |
+| `tests_sh/` | SignalHound tests |
+| `docs/hackster/` | write-up, figures and the scripts that generate them |
+| `recall_rover/`, `apps/`, `tests/` | our earlier HackMIT idea, kept for history (see [legacy/](legacy/README.md)) |
